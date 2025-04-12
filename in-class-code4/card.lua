@@ -4,9 +4,9 @@ require "vector"
 CardClass = {}
 
 CARD_STATE = {
-  idle = 0,
-  mouse_over = 1,
-  grabbed = 2
+  IDLE = 0,
+  MOUSE_OVER = 1,
+  GRABBED = 2
 }
 
 
@@ -16,8 +16,8 @@ function CardClass:new(xPos, yPos)
   setmetatable(card, metadata)
   
   card.position = Vector(xPos, yPos)
-  card.size = Vector(50, 70)
-  card.state = CARD_STATE.idle
+  card.size = Vector(60, 80)
+  card.state = CARD_STATE.IDLE
   
   return card
 end
@@ -27,15 +27,21 @@ function CardClass:update()
 end
 
 function CardClass:draw()
+  -- NEW: drop shadow for non-idle cards
+  if self.state ~= CARD_STATE.IDLE then
+    love.graphics.setColor(0, 0, 0, 0.8) -- color values [0, 1]
+    local offset = 4 * (self.state == CARD_STATE.GRABBED and 2 or 1)
+    love.graphics.rectangle("fill", self.position.x + offset, self.position.y + offset, self.size.x, self.size.y, 6, 6)
+  end
   
   love.graphics.setColor(1, 1, 1, 1)
   love.graphics.rectangle("fill", self.position.x, self.position.y, self.size.x, self.size.y, 6, 6)
   
-  love.graphics.print(tostring(self, state), self.position.x + 20, self.position.y - 20)
+  love.graphics.print(tostring(self.state), self.position.x + 20, self.position.y - 20)
 end
 
 function CardClass:checkForMouseOver()
-  if self.state == CARD_STATE.grabbed then
+  if self.state == CARD_STATE.GRABBED then
     return
   end
     
@@ -46,6 +52,6 @@ function CardClass:checkForMouseOver()
     mousePos.y > self.position.y and
     mousePos.y < self.position.y + self.size.y
   
-  self.state = isMouseOver and CARD_STATE.mouse_over or CARD_STATE.idle
+  self.state = isMouseOver and CARD_STATE.MOUSE_OVER or CARD_STATE.IDLE
   
 end

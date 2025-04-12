@@ -28,7 +28,6 @@ function EntityClass:update()
       moveDirection = moveDirection + direction
     end
   end
-  
   self.position = self.position + moveDirection
 end
 

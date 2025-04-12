@@ -14,6 +14,12 @@ function love.load()
   cardTable = {}
   
   table.insert(cardTable, CardClass:new(100, 100))
+  table.insert(cardTable, CardClass:new(170, 100))
+  table.insert(cardTable, CardClass:new(240, 100))
+  table.insert(cardTable, CardClass:new(310, 100))
+  table.insert(cardTable, CardClass:new(380, 100))
+  table.insert(cardTable, CardClass:new(450, 100))
+  table.insert(cardTable, CardClass:new(520, 100))
 end
 
 function love.update()

@@ -52,5 +52,4 @@ function love.draw()
   for _, obj in ipairs(testObjects) do
     obj:draw()
   end
-  
 end
