@@ -6,6 +6,7 @@ io.stdout:setvbuf("no")
 require "entity"
 
 function love.load()
+  love.window.setTitle("I don't fk know")
   love.graphics.setDefaultFilter("nearest", "nearest")
   screenWidth = 640
   screenHeight = 480

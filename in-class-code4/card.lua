@@ -23,7 +23,9 @@ function CardClass:new(xPos, yPos)
 end
 
 function CardClass:update()
-  
+  if self.state == CARD_STATE.GRABBED then
+    self.position = grabber.currentMousePos - self.size * 0.5
+  end
 end
 
 function CardClass:draw()
@@ -44,14 +46,12 @@ function CardClass:checkForMouseOver()
   if self.state == CARD_STATE.GRABBED then
     return
   end
-    
   local mousePos = grabber.currentMousePos
   local isMouseOver = 
     mousePos.x > self.position.x and 
     mousePos.x < self.position.x + self.size.x and 
     mousePos.y > self.position.y and
     mousePos.y < self.position.y + self.size.y
-  
   self.state = isMouseOver and CARD_STATE.MOUSE_OVER or CARD_STATE.IDLE
   
 end
