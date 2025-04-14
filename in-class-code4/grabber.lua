@@ -68,7 +68,6 @@ function GrabberClass:release()
 end
 
 function GrabberClass:checkValidDrop(card)
-  -- Example: you could make sure it's dropped inside a region
   local x, y = card.position.x, card.position.y
   return x > 50 and x < 900 and y > 50 and y < 600
 end
