@@ -86,7 +86,7 @@ function GrabberClass:release()
     if fromSuitPile then break end
   end
   
-  -- ⭐ Find out which tableauPile heldObject was originally in (in order to turn over the cards later)
+  -- Find out which tableauPile heldObject was originally in (in order to turn over the cards later)
   local fromPileIndex = nil
   for i, pile in ipairs(tableauPiles) do
     for j, card in ipairs(pile) do
