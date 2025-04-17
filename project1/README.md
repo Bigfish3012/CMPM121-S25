@@ -5,6 +5,7 @@
 1. **State Pattern**
    - Implemented different card states (IDLE, MOUSE_OVER, GRABBED)
    - Each state has specific behaviors and transitions
+   - Use this pattern to make the code more organized and to facilitate the management of various interactive states of cards. It can also be used for debugging.
 
 2. **Component Pattern**
    - Cards have multiple components (position, suit, rank, etc.)
