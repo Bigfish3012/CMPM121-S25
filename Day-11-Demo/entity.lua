@@ -1,5 +1,5 @@
-
 require "vector"
+
 EntityClass = {}
 
 SPRITE_SIZE = 16
@@ -32,7 +32,7 @@ function EntityClass:new(dc, sc, xPos, yPos, width, height, scale)
   setmetatable(entity, metatable)
   
   entity.dataClass = dc
-  entity.behavior = entity.dataClass.behavior::new(entity)
+  entity.behavior = entity.dataClass.behavior:new(entity)
   entity.spriteClass = sc
     
   entity.facingDirection = DIRECTIONS.DOWN
@@ -46,20 +46,21 @@ function EntityClass:new(dc, sc, xPos, yPos, width, height, scale)
 end
 
 function EntityClass:update()
-  if self.behavior == nil then 
-    return 
+  if self.behavior == nil then
+    return
   end
-
+  
   self.behavior:update()
 end
 
 function EntityClass:draw()
   --love.graphics.rectangle("fill", self.position.x, self.position.y, self.size.x, self.size.y)
   
-  local currentSprite, flipX = self.spriteClass:getSprite(self.facingDirection, self.walking)
+  local currentSprite, flipX = self.spriteClass:getSprite(self.facingDirection, self.walking, self)
   
   love.graphics.draw(currentSprite, 
     self.position.x, self.position.y, 0, 
     self.scale * flipX, self.scale,
     self.size.x/2, self.size.y/2)
 end
+

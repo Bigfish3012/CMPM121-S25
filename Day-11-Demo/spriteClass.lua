@@ -19,7 +19,7 @@ function SpriteClass:new()
     [DIRECTIONS.LEFT] = onlyAnim,
     [DIRECTIONS.RIGHT] = onlyAnim
   }
-  sprite.animSpeed = 5  
+  sprite.animSpeed = 5
   
   return sprite
 end

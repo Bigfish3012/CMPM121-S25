@@ -1,6 +1,6 @@
 -- Zac Emerzian
--- CMPM 121 - Update
--- 4-7-2025 - 4-18-2025
+-- CMPM 121 - Zelda Demo
+-- 4-7-2025 - 4-28-2025
 io.stdout:setvbuf("no")
 
 function love.load()
@@ -15,8 +15,7 @@ function love.load()
   require "entityData"
   require "spriteClass" -- require will call the functions in the given file, so the Gibdo sprite WAS being loaded in BEFORE we were setting the default filter in load(), by moving the requires into load(), we can setup the project before getting the other scripts involved
   require "behaviorClass"
-
-
+  
   linkSpriteClass = LinkSprites:new()
   moblinSpriteClass = MoblinSprites:new()
   octorokSpriteClass = OctorokSprites:new()
