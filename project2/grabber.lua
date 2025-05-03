@@ -1,6 +1,7 @@
 --grabber
 
 require "vector"
+local GrabberHelper = require "grabber_helper"
 
 GrabberClass = {}
 
@@ -9,13 +10,16 @@ function GrabberClass:new()
   local metadata = {__index = GrabberClass}
   setmetatable(grabber, metadata)
   
-  grabber.previousMousePos = nil
   grabber.currentMousePos = nil
-  
   grabber.grabPos = nil
+  grabber.dragOffset = nil
   
-  -- NEW: we'll want to keep track of the object (ie. card) we're holding
+  -- Track the object (card) we're holding
   grabber.heldObject = nil
+  -- Track the stack of cards being moved together
+  grabber.heldStack = {}
+  -- Flag to indicate if we should ignore the next grab attempt
+  grabber.ignoreNextGrab = false
   
   return grabber
 end
@@ -29,29 +33,77 @@ function GrabberClass:update()
   -- Click (just the first frame)
   if love.mouse.isDown(1) and self.grabPos == nil then
     self:grab()
+    -- 确保ignoreNextGrab标志在第一帧后被重置
+    if self.ignoreNextGrab then
+      self.ignoreNextGrab = false
+    end
   end
   -- Release
   if not love.mouse.isDown(1) and self.grabPos ~= nil then
     self:release()
-  end  
+  end
+  
+  -- Update stack positions if dragging
+  if #self.heldStack > 1 and self.heldObject and self.heldObject.state == CARD_STATE.GRABBED then
+    local basePos = self.heldObject.position
+    for i = 2, #self.heldStack do
+      self.heldStack[i].position = Vector(basePos.x, basePos.y + (i-1) * 20)
+      -- Move each card to top for rendering order
+      GrabberHelper.moveCardToTop(self.heldStack[i])
+    end
+  end
 end
 
 function GrabberClass:grab()
+  -- If we should ignore this grab, reset the flag and return
+  if self.ignoreNextGrab then
+    self.ignoreNextGrab = false
+    return
+  end
+
   for _, card in ipairs(cardTable) do
     if card.state == CARD_STATE.MOUSE_OVER and card.canDrag then
       self.heldObject = card
       card.state = CARD_STATE.GRABBED
       card.originalPosition = Vector(card.position.x, card.position.y) -- store original
       self.grabPos = self.currentMousePos -- Only set if successfully caught
-      print("GRAB - ", card)
-      -- move the card to the top 
-      for i, c in ipairs(cardTable) do
-        if c == card then
-          table.remove(cardTable, i)
-          table.insert(cardTable, card) -- reinsert to the latest
-          break
+      
+      -- Calculate drag offset as card position minus mouse position to maintain correct relative position
+      self.dragOffset = Vector(card.position.x, card.position.y) - self.currentMousePos
+      
+      -- Clear previous held stack
+      self.heldStack = {}
+      
+      -- Find card in tableau
+      local cardLocation = GrabberHelper.findCardInTableau(card)
+      
+      -- If this card is in a tableau pile and face up, grab all cards below it too
+      if cardLocation.pileIndex and cardLocation.cardIndexInPile then
+        local pile = tableauPiles[cardLocation.pileIndex]
+        if card.faceUp then
+          -- Add card to stack, and keep correct rendering order
+          for i = cardLocation.cardIndexInPile, #pile do
+            table.insert(self.heldStack, pile[i])
+            
+            -- Store original positions for all cards in stack
+            if i > cardLocation.cardIndexInPile then
+              pile[i].originalPosition = Vector(pile[i].position.x, pile[i].position.y)
+            end
+            
+            -- Move each card to top for rendering order
+            GrabberHelper.moveCardToTop(pile[i])
+          end
+          
+          return
         end
+      else
+        -- Just a single card from draw pile or suit pile
+        table.insert(self.heldStack, card)
       end
+      
+      -- Move grabbed card to top of render order
+      GrabberHelper.moveCardToTop(card)
+      
       return
     end
   end
@@ -62,66 +114,37 @@ function GrabberClass:release()
     return
   end
   
-  -- Check if card is from drawPile
-  local fromDrawPile = false
-  for _, card in ipairs(drawPile) do
-    if card == self.heldObject then
-      fromDrawPile = true
-      break
-    end
-  end
+  -- Find the source of the card
+  local sourceInfo = GrabberHelper.findCardSource(self.heldObject)
   
-  -- Check if card is from a suit pile
-  local fromSuitPile = false
-  for _, suit in ipairs({"Spades", "Hearts", "Clubs", "Diamonds"}) do
-    local pile = suitPiles[suit]
-    for _, card in ipairs(pile) do
-      if card == self.heldObject then
-        fromSuitPile = true
-        break
-      end
-    end
-    if fromSuitPile then break end
-  end
-  
-  -- Find out which tableauPile heldObject was originally in (in order to turn over the cards later)
-  local fromPileIndex = nil
-  for i, pile in ipairs(tableauPiles) do
-    for j, card in ipairs(pile) do
-      if card == self.heldObject then
-        fromPileIndex = i
-        break
-      end
-    end
-    if fromPileIndex then break end
-  end
-  
-  -- First try to place card on a suit pile
+  -- First try to place card on a suit pile (only single cards can go to suit piles)
   local placedOnSuitPile = false
-  for suitIndex, suit in ipairs({"Spades", "Hearts", "Clubs", "Diamonds"}) do
-    local suitPos = suitPilePositions[suitIndex]
-    local cardCenterX = self.heldObject.position.x + self.heldObject.size.x / 2
-    local cardCenterY = self.heldObject.position.y + self.heldObject.size.y / 2
-    
-    -- Check if card is over this suit pile placeholder
-    if math.abs(cardCenterX - (suitPos.x + 30)) < 40 and 
-       math.abs(cardCenterY - (suitPos.y + 40)) < 50 then
+  if #self.heldStack == 1 then
+    for suitIndex, suit in ipairs({"Spades", "Hearts", "Clubs", "Diamonds"}) do
+      local suitPos = suitPilePositions[suitIndex]
+      local w, h = self.heldObject:getCardDimensions()
+      local cardCenterX = self.heldObject.position.x + w / 2
+      local cardCenterY = self.heldObject.position.y + h / 2
       
-      -- Check if card can be placed in this suit pile
-      if canAddToSuitPile(self.heldObject, suit) then
-        -- Remove from source pile if needed
-        if fromDrawPile then
-          removeCardFromDrawPile(self.heldObject)
-        elseif fromPileIndex then
-          table.remove(tableauPiles[fromPileIndex], #tableauPiles[fromPileIndex])
-        elseif fromSuitPile then
-          removeFromSuitPile(self.heldObject)
-        end
+      -- Check if card is over this suit pile placeholder
+      if GrabberHelper.canPlaceOnSuitPilePlaceholder(self.heldObject, suitPos, cardCenterX, cardCenterY) then
         
-        -- Add to suit pile
-        addToSuitPile(self.heldObject, suit)
-        placedOnSuitPile = true
-        break
+        -- Check if card can be placed in this suit pile
+        if canAddToSuitPile(self.heldObject, suit) then
+          -- Remove from source pile if needed
+          if sourceInfo.fromDrawPile then
+            removeCardFromDrawPile(self.heldObject)
+          elseif sourceInfo.fromPileIndex then
+            GrabberHelper.removeCardsFromTableau(sourceInfo.fromPileIndex, self.heldStack)
+          elseif sourceInfo.fromSuitPile then
+            removeFromSuitPile(self.heldObject)
+          end
+          
+          -- Add to suit pile
+          addToSuitPile(self.heldObject, suit)
+          placedOnSuitPile = true
+          break
+        end
       end
     end
   end
@@ -129,81 +152,79 @@ function GrabberClass:release()
   -- If card was placed on a suit pile, we're done
   if placedOnSuitPile then
     -- If card came from tableau pile, turn over next card
-    if fromPileIndex then
-      local fromPile = tableauPiles[fromPileIndex]
-      if #fromPile > 0 then
-        local topCard = fromPile[#fromPile]
-        if not topCard.faceUp then
-          topCard.faceUp = true
-          topCard.canDrag = true
-        end
-      end
+    if sourceInfo.fromPileIndex then
+      GrabberHelper.turnOverTopCard(sourceInfo.fromPileIndex)
     end
-    
-    self.heldObject.state = CARD_STATE.IDLE
-    self.heldObject = nil
-    self.grabPos = nil
+    -- Reset state
+    self:resetGrabState()
     return
   end
   
-  -- Try to find an available tableauPiles to place the cards
+  -- Try to find an available tableauPile to place the cards
   local placed = false
   for i, pile in ipairs(tableauPiles) do
     local lastCard = pile[#pile]
     if lastCard and lastCard.faceUp then
-      local valid = self:isValidTableauMove(self.heldObject, lastCard)
+      local valid = GrabberHelper.isValidTableauMove(self.heldObject, lastCard)
       if valid then
-        -- Place it at the bottom of this pile
-        self.heldObject.position = Vector(lastCard.position.x, lastCard.position.y + 20)
-        table.insert(pile, self.heldObject)
+        -- Place the stack at this pile
+        local yOffset = lastCard.position.y + 20
+        self.heldObject.position = Vector(lastCard.position.x, yOffset)
+        
+        -- First remove cards from their original pile
+        if sourceInfo.fromDrawPile then
+          removeCardFromDrawPile(self.heldObject)
+        elseif sourceInfo.fromSuitPile then
+          removeFromSuitPile(self.heldObject)
+        elseif sourceInfo.fromPileIndex then
+          GrabberHelper.removeCardsFromTableau(sourceInfo.fromPileIndex, self.heldStack)
+        end
+        
+        -- Add all cards to target pile
+        GrabberHelper.addCardsToTableau(pile, self.heldStack, Vector(lastCard.position.x, yOffset))
+        
         placed = true
         break
       end
-    elseif #pile == 0 and self.heldObject.rank == "K" then
+    elseif #pile == 0 and self.heldObject.value == 13 then
       -- If the pile is empty, only K can be placed
-      self.heldObject.position = Vector(130 + (i - 1) * 70, 150)
-      table.insert(pile, self.heldObject)
+      local basePosition = Vector(150 + (i - 1) * 95, 190)
+      self.heldObject.position = basePosition
+      
+      -- First remove cards from their original pile
+      if sourceInfo.fromDrawPile then
+        removeCardFromDrawPile(self.heldObject)
+      elseif sourceInfo.fromSuitPile then
+        removeFromSuitPile(self.heldObject)
+      elseif sourceInfo.fromPileIndex then
+        GrabberHelper.removeCardsFromTableau(sourceInfo.fromPileIndex, self.heldStack)
+      end
+      
+      -- Add all cards to target pile
+      GrabberHelper.addCardsToTableau(pile, self.heldStack, basePosition)
+      
       placed = true
       break
     end
   end
   
-  -- if no place would put, then return to the original position
+  -- If no place to put, return all cards to original positions
   if not placed then
-    self.heldObject.position = self.heldObject.originalPosition
-  else
-    -- If card is from drawPile, remove it after successful placement
-    if fromDrawPile then
-      removeCardFromDrawPile(self.heldObject)
-    -- If card is from a suit pile, remove it
-    elseif fromSuitPile then
-      removeFromSuitPile(self.heldObject)
-    -- If the move is successful, try to remove it from the original pile and turn over the card (but only if it came from the tableau pile)
-    elseif fromPileIndex then
-      local fromPile = tableauPiles[fromPileIndex]
-      for j = #fromPile, 1, -1 do
-        if fromPile[j] == self.heldObject then
-          table.remove(fromPile, j)
-          -- If there are still cards and the top is the back, turn it over
-          local topCard = fromPile[#fromPile]
-          if topCard and not topCard.faceUp then
-            topCard.faceUp = true
-            topCard.canDrag = true
-          end
-          break
-        end
-      end
+    for _, card in ipairs(self.heldStack) do
+      card.position = card.originalPosition
     end
   end
+  
+  -- Reset state
+  self:resetGrabState()
+end
+
+-- Reset grabber state
+function GrabberClass:resetGrabState()
   self.heldObject.state = CARD_STATE.IDLE
   self.heldObject = nil
   self.grabPos = nil
-end
-
-function GrabberClass:isValidTableauMove(card, targetCard)
-  -- 颜色不同，且点数正好小1
-  if card:getColor() == targetCard:getColor() then return false end
-  local v1 = CardClass.rankToValue(card.rank)
-  local v2 = CardClass.rankToValue(targetCard.rank)
-  return v1 + 1 == v2
+  self.dragOffset = nil
+  self.heldStack = {}
+  self.ignoreNextGrab = false
 end

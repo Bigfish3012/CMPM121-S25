@@ -1,4 +1,4 @@
---vector file
+--vector file -- from prof.Emerzian's code -- https://github.com/ZacEmerzian/CMPM121/blob/main/Bouncing%20Bubbles%20Demo/vector.lua
 Vector = {}
 
 metatable = { -- Define Vector meta methods

@@ -31,86 +31,115 @@ for suit, prefix in pairs(suitPrefix) do
   end
 end
 local cardBackImage = love.graphics.newImage("sprites/card_back.png")
+local returnBackImage = love.graphics.newImage("sprites/return_back.png")
 
 function CardClass:new(xPos, yPos, suit, value, faceUp)
   local card = {}
-  local metadata = {__index = CardClass, __tostring = CardClass.__tostring}
+  local metadata = {__index = CardClass}
   setmetatable(card, metadata)
   
   card.position = Vector(xPos, yPos)
-  card.size = Vector(60, 80)
   card.state = CARD_STATE.IDLE
   
   card.suit = suit or "Spades"
   card.value = value or 1
-  card.rank = CardClass:convertValueToRank(card.value)
   card.faceUp = faceUp or false
   card.canDrag = false
+  card.isDeckPile = false  -- Flag to identify if card is in deck pile
   
   return card
 end
 
-function CardClass:__tostring()
-  return string.format("Card(%s %s)", self:getSuitSymbol(), self.rank)
-end
-
-function CardClass:convertValueToRank(value)
-  local ranks = {
-    [1] = "A", [2] = "2", [3] = "3", [4] = "4", [5] = "5",
-    [6] = "6", [7] = "7", [8] = "8", [9] = "9", [10] = "10",
-    [11] = "J", [12] = "Q", [13] = "K"
-  }
-  return ranks[value] or tostring(value)
-end
-
 function CardClass:update()
   if self.state == CARD_STATE.GRABBED then
-    self.position = grabber.currentMousePos - self.size * 0.5
+    self.position = grabber.currentMousePos + grabber.dragOffset
   end
 end
 
 function CardClass:draw()
   if self.faceUp then
-    -- 正面：画图片
-    local img = cardImages[self.suit][self:getValue()]
-    if img then
-      love.graphics.setColor(1, 1, 1, 1)
-      love.graphics.draw(img, self.position.x, self.position.y, 0, self.size.x / img:getWidth(), self.size.y / img:getHeight())
-    else
-      -- 没有图片时画个红框
-      love.graphics.setColor(1, 0, 0)
-      love.graphics.rectangle("line", self.position.x, self.position.y, self.size.x, self.size.y)
-    end
+    -- face up: draw image, original size
+    local img = cardImages[self.suit][self.value]
+    love.graphics.draw(img, self.position.x, self.position.y)
   else
-    -- 背面
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.draw(cardBackImage, self.position.x, self.position.y, 0, self.size.x / cardBackImage:getWidth(), self.size.y / cardBackImage:getHeight())
+    -- back side: draw image, original size
+    -- Use return image if deck pile is empty and this is the deck pile placeholder
+    if #deckPile == 0 and self.isDeckPile then
+      love.graphics.draw(returnBackImage, self.position.x, self.position.y)
+    else
+      love.graphics.draw(cardBackImage, self.position.x, self.position.y)
+    end
   end
 end
 
+-- Check if mouse is over the card
 function CardClass:checkForMouseOver(grabber)
   if self.state == CARD_STATE.GRABBED then
     return
   end
   local mousePos = grabber.currentMousePos
-  local isMouseOver = 
-    mousePos.x > self.position.x and 
-    mousePos.x < self.position.x + self.size.x and 
-    mousePos.y > self.position.y and
-    mousePos.y < self.position.y + self.size.y
-  self.state = isMouseOver and CARD_STATE.MOUSE_OVER or CARD_STATE.IDLE
+  local img
+  
+  if self.faceUp then
+    img = cardImages[self.suit][self.value]
+  else
+    -- Use appropriate back image based on deck state
+    if #deckPile == 0 and self.isDeckPile then
+      img = returnBackImage
+    else
+      img = cardBackImage
+    end
+  end
+  
+  local w, h = img:getWidth(), img:getHeight()
+  
+  -- Check if this card is in a tableau pile, and is not the top card
+  local isInTableauPile = false
+  local isTopCard = true
+  local visibleHeight = h  -- Default whole card visible
+  
+  for pileIndex, pile in ipairs(tableauPiles) do
+    for cardIndex, card in ipairs(pile) do
+      if card == self then
+        isInTableauPile = true
+        -- if not the top card on the pile
+        if cardIndex < #pile then
+          isTopCard = false
+          visibleHeight = 20
+        end
+        break
+      end
+    end
+    if isInTableauPile then break end
+  end
+  
+  -- check if mouse is over the card
+  local isMouseOver = false
+  
+  if isInTableauPile and not isTopCard then
+    -- if in tableau pile and not the top card, only check the top visible area of the card
+    isMouseOver = 
+      mousePos.x > self.position.x and 
+      mousePos.x < self.position.x + w and 
+      mousePos.y > self.position.y and
+      mousePos.y < self.position.y + visibleHeight
+  else
+    -- other cases (single card or top card on pile), check the whole card area
+    isMouseOver = 
+      mousePos.x > self.position.x and 
+      mousePos.x < self.position.x + w and 
+      mousePos.y > self.position.y and
+      mousePos.y < self.position.y + h
+  end
+  
+  if isMouseOver then
+    self.state = CARD_STATE.MOUSE_OVER
+  else
+    self.state = CARD_STATE.IDLE
+  end
 end
 
-function CardClass:getSuitSymbol()
-  local symbols = {
-    Hearts = "Heart",
-    Spades = "Spade",
-    Clubs = "Club",
-    Diamonds = "Diamond"
-  }
-  return symbols[self.suit] or "ERROR"
-end
-
+-- Get card color
 function CardClass:getColor()
   if self.suit == "Hearts" or self.suit == "Diamonds" then
     return "red"
@@ -119,18 +148,20 @@ function CardClass:getColor()
   end
 end
 
-function CardClass:getValue()
-  -- 1~13
-  if type(self.value) == "number" then return self.value end
-  local lookup = {A=1, ["2"]=2, ["3"]=3, ["4"]=4, ["5"]=5, ["6"]=6, ["7"]=7, ["8"]=8, ["9"]=9, ["10"]=10, J=11, Q=12, K=13}
-  return lookup[self.rank] or 1
-end
-
-function CardClass.rankToValue(rank)
-  local lookup = {
-    A = 1, ["2"] = 2, ["3"] = 3, ["4"] = 4,
-    ["5"] = 5, ["6"] = 6, ["7"] = 7, ["8"] = 8,
-    ["9"] = 9, ["10"] = 10, J = 11, Q = 12, K = 13
-  }
-  return lookup[rank] or 0
+-- Get card dimensions
+function CardClass:getCardDimensions()
+  local img
+  
+  if self.faceUp then
+    img = cardImages[self.suit][self.value]
+  else
+    -- Use appropriate back image based on deck state
+    if #deckPile == 0 and self.isDeckPile then
+      img = returnBackImage
+    else
+      img = cardBackImage
+    end
+  end
+  
+  return img:getWidth(), img:getHeight()
 end
