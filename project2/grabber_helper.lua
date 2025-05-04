@@ -11,38 +11,31 @@ function GrabberHelper.findCardSource(heldObject)
     fromPileIndex = nil
   }
   
-  -- Check if card is from drawPile
+  -- Check if card is from drawPile 
   for _, card in ipairs(drawPile) do
     if card == heldObject then
       info.fromDrawPile = true
-      break
+      return info
     end
   end
   
   -- Check if card is from a suit pile
-  if not info.fromDrawPile then
-    for _, suit in ipairs({"Spades", "Hearts", "Clubs", "Diamonds"}) do
-      local pile = suitPiles[suit]
-      for _, card in ipairs(pile) do
-        if card == heldObject then
-          info.fromSuitPile = true
-          break
-        end
+  for _, suit in ipairs({"Spades", "Hearts", "Clubs", "Diamonds"}) do
+    for _, card in ipairs(suitPiles[suit]) do
+      if card == heldObject then
+        info.fromSuitPile = true
+        return info
       end
-      if info.fromSuitPile then break end
     end
   end
   
   -- Check if card is from a tableau pile
-  if not info.fromDrawPile and not info.fromSuitPile then
-    for i, pile in ipairs(tableauPiles) do
-      for _, card in ipairs(pile) do
-        if card == heldObject then
-          info.fromPileIndex = i
-          break
-        end
+  for i, pile in ipairs(tableauPiles) do
+    for _, card in ipairs(pile) do
+      if card == heldObject then
+        info.fromPileIndex = i
+        return info
       end
-      if info.fromPileIndex then break end
     end
   end
   
@@ -51,8 +44,13 @@ end
 
 -- Check if a card can be placed on a suit pile placeholder
 function GrabberHelper.canPlaceOnSuitPilePlaceholder(card, suitPos, cardCenterX, cardCenterY)
-  return math.abs(cardCenterX - (suitPos.x + 30)) < 40 and 
-         math.abs(cardCenterY - (suitPos.y + 40)) < 50
+  local placeholderCenterX = suitPos.x + 30
+  local placeholderCenterY = suitPos.y + 40
+  local horizontalTolerance = 40
+  local verticalTolerance = 50
+  
+  return math.abs(cardCenterX - placeholderCenterX) < horizontalTolerance and 
+         math.abs(cardCenterY - placeholderCenterY) < verticalTolerance
 end
 
 -- Move card to top of render order
@@ -60,8 +58,8 @@ function GrabberHelper.moveCardToTop(card)
   for i, c in ipairs(cardTable) do
     if c == card then
       table.remove(cardTable, i)
-      table.insert(cardTable, card) -- reinsert at the end (top)
-      break
+      table.insert(cardTable, card)
+      return
     end
   end
 end
@@ -78,12 +76,12 @@ function GrabberHelper.findCardInTableau(card)
       if c == card then
         info.pileIndex = i
         info.cardIndexInPile = j
-        return info -- Found, return immediately
+        return info
       end
     end
   end
   
-  return info -- Not found in any tableau
+  return info
 end
 
 -- Check if a move to tableau is valid (diff color and rank one less)
@@ -95,35 +93,15 @@ end
 
 -- Helper function to remove a stack of cards from a tableau pile
 function GrabberHelper.removeCardsFromTableau(pileIndex, cardStack)
-  -- if the stack is empty, return
   if #cardStack == 0 then return end
-  
-  local firstCard = cardStack[1]
   local pile = tableauPiles[pileIndex]
-  
-  -- Find the index of the first card in the stack
-  local startIndex = nil
-  for i, card in ipairs(pile) do
-    if card == firstCard then
-      startIndex = i
-      break
-    end
-  end
-  
-  if startIndex then
-    -- Remove all cards from startIndex to the end
-    for i = #pile, startIndex, -1 do
-      table.remove(pile, i)
-    end
-    
-    -- If there are still cards and the top is face down, turn it over
-    if #pile > 0 then
-      local topCard = pile[#pile]
-      if not topCard.faceUp then
-        topCard.faceUp = true
-        topCard.canDrag = true
+  local firstCard = cardStack[1]
+  local cardInfo = GrabberHelper.findCardInTableau(firstCard)
+  if cardInfo.cardIndexInPile then
+      for i = 1, #cardStack do
+          table.remove(pile, cardInfo.cardIndexInPile)
       end
-    end
+      GrabberHelper.turnOverTopCard(pileIndex)
   end
 end
 
@@ -135,6 +113,9 @@ function GrabberHelper.turnOverTopCard(pileIndex)
     if not topCard.faceUp then
       topCard.faceUp = true
       topCard.canDrag = true
+      topCard.state = CARD_STATE.IDLE
+      
+      GrabberHelper.moveCardToTop(topCard)
     end
   end
 end
@@ -143,9 +124,105 @@ end
 function GrabberHelper.addCardsToTableau(pile, heldStack, basePosition)
   for i, card in ipairs(heldStack) do
     table.insert(pile, card)
-    -- Set position for each card in the stack to ensure proper offset stacking
-    if i > 1 then
+    
+    -- set the position of the card, ensure proper stacking
+    if i == 1 then
+      card.position = basePosition
+    else
       card.position = Vector(basePosition.x, basePosition.y + (i-1) * 20)
+    end
+    
+    -- ensure all cards are at the top of the rendering order
+    GrabberHelper.moveCardToTop(card)
+    
+    -- ensure all cards state is correct
+    card.state = CARD_STATE.IDLE
+  end
+end
+
+-- Check if a card can be added to a suit pile
+function GrabberHelper.canAddToSuitPile(card, suit)
+  local pile = suitPiles[suit]
+  
+  -- Card must match the suit
+  if card.suit ~= suit then
+    return false
+  end
+  
+  -- If pile is empty, only A can be placed
+  if #pile == 0 then
+    return card.value == 1
+  end
+  
+  -- Otherwise, card must be one rank higher than the top card
+  local topCard = pile[#pile]
+  return card.value == topCard.value + 1
+end
+
+-- Remove a card from a suit pile
+function GrabberHelper.removeFromSuitPile(card)
+  for _, suit in ipairs({"Spades", "Hearts", "Clubs", "Diamonds"}) do
+    local pile = suitPiles[suit]
+    for i = #pile, 1, -1 do
+      if pile[i] == card then
+        table.remove(pile, i)
+        Helper.updateSuitPilesDraggableCards(suitPiles)
+        return
+      end
+    end
+  end
+end
+
+-- Add a card to a suit pile
+function GrabberHelper.addToSuitPile(card, suit)
+  -- Add card to suit pile
+  table.insert(suitPiles[suit], card)
+  
+  -- Update card position
+  local suitIndex = 0
+  for i, s in ipairs({"Spades", "Hearts", "Clubs", "Diamonds"}) do
+    if s == suit then
+      suitIndex = i
+      break
+    end
+  end
+  
+  card.position = suitPilePositions[suitIndex]
+  
+  -- Ensure card is face up
+  card.faceUp = true
+  
+  -- Move card to top of render order
+  GrabberHelper.moveCardToTop(card)
+  
+  -- Update draggable state
+  Helper.updateSuitPilesDraggableCards(suitPiles)
+end
+
+-- Remove specified card from drawPile
+function GrabberHelper.removeCardFromDrawPile(card)
+  -- Remove from visibleDrawCards
+  for i = #visibleDrawCards, 1, -1 do
+    if visibleDrawCards[i] == card then
+      table.remove(visibleDrawCards, i)
+      break
+    end
+  end
+  
+  -- Remove from drawPile
+  for i = #drawPile, 1, -1 do
+    if drawPile[i] == card then
+      table.remove(drawPile, i)
+      break
+    end
+  end
+  
+  -- Update positions using Helper function
+  if #visibleDrawCards > 0 then
+    local visibleCount = math.min(3, #visibleDrawCards)
+    for i = 1, #visibleDrawCards do
+      local currentCard = visibleDrawCards[i]
+      Helper.positionCardInDrawPile(currentCard, i, #visibleDrawCards, visibleCount, drawPilePositions)
     end
   end
 end

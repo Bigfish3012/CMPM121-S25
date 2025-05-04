@@ -4,36 +4,21 @@ local Helper = {}
 
 -- check if player has won the game
 function Helper.checkForWin(gameState, cardTable, suitPiles)
-  -- If already won, stop checking
   if gameState.hasWon then return end
-  
-  -- Check condition 1: All cards are face up
-  local allFaceUp = true
-  for _, card in ipairs(cardTable) do
-    if not card.faceUp then
-      allFaceUp = false
-      break
-    end
-  end
-  
-  -- Check condition 2: All suit piles are full (13 cards each)
-  local allSuitsFull = true
   for _, suit in ipairs({"Spades", "Hearts", "Clubs", "Diamonds"}) do
-    if #suitPiles[suit] < 13 then
-      allSuitsFull = false
-      break
-    end
+      if #suitPiles[suit] < 13 then
+          return
+      end
   end
-  
-  -- If either condition is met, player wins
-  if allFaceUp or allSuitsFull then
-    gameState.hasWon = true
-    print("Game Won!")
-  end
+  gameState.hasWon = true
+  print("Game Won!")
 end
 
 -- draw game win screen
 function Helper.drawWinScreen(gameState)
+  -- Store original font to restore it later
+  local originalFont = love.graphics.getFont()
+  
   -- Semi-transparent black background
   love.graphics.setColor(0, 0, 0, 0.7)
   love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
@@ -54,7 +39,9 @@ function Helper.drawWinScreen(gameState)
   
   -- Restore default settings
   love.graphics.pop()
-  love.graphics.setFont(love.graphics.newFont(12)) -- Reset to default font
+  
+  -- Restore original font
+  love.graphics.setFont(originalFont)
 end
 
 -- update draw pile draggable cards
@@ -82,62 +69,128 @@ function Helper.updateSuitPilesDraggableCards(suitPiles)
   end
 end
 
+-- Position a card in the draw pile based on its index
+function Helper.positionCardInDrawPile(card, index, totalCards, visibleCount, drawPilePositions)
+  -- Last cards are placed at the visible positions
+  if index > totalCards - visibleCount then
+    local posIndex = visibleCount - (totalCards - index)
+    card.position = drawPilePositions[posIndex]
+    card.canDrag = (index == totalCards) -- Only the last card is draggable
+  else
+    -- Earlier cards are stacked at position 1
+    card.position = drawPilePositions[1]
+    card.canDrag = false
+  end
+  
+  -- Ensure correct state
+  if card.state ~= CARD_STATE.GRABBED then
+    card.state = CARD_STATE.IDLE
+  end
+end
+
 -- Reorganize visible cards in the draw pile
 function Helper.reorganizeVisibleDrawCards(drawPile, visibleDrawCards, drawPilePositions)
-  -- If no visible cards, no need to process
+  -- If there are no visible cards, no need to process
   if #visibleDrawCards == 0 then
     return
   end
   
-  -- If there are fewer than 3 visible cards, but more in the draw pile
-  -- We need to pull cards from the stacked pile to fill the display
-  if #visibleDrawCards < 3 and #drawPile > #visibleDrawCards then
-    -- Calculate how many stacked cards are available
-    local stackedCards = #drawPile - #visibleDrawCards
-    
-    -- Calculate how many cards needed to reach 3 visible cards
-    local cardsNeeded = math.min(3 - #visibleDrawCards, stackedCards)
-    
-    -- Take the required number of cards from the stacked pile
-    for i = 1, cardsNeeded do
-      -- Find the first card in the draw pile that isn't already visible
-      local cardToShow = nil
-      for _, card in ipairs(drawPile) do
-        local isVisible = false
-        for _, visibleCard in ipairs(visibleDrawCards) do
-          if card == visibleCard then
-            isVisible = true
-            break
-          end
-        end
-        
-        if not isVisible then
-          cardToShow = card
-          cardToShow.faceUp = true
-          table.insert(visibleDrawCards, 1, cardToShow)
-          break
-        end
-      end
-    end
-  end
+  -- Calculate number of cards to show
+  local cardsToShow = math.min(3, #visibleDrawCards)
   
-  -- Update positions for all visible cards
+  -- Set correct position and draggable state for each card
   for i = 1, #visibleDrawCards do
-    -- Ensure a maximum of 3 visible cards
-    local positionIndex = math.min(i, 3)
-    if i > #visibleDrawCards - 3 then
-      -- The last 3 cards should be positioned at the 3 locations
-      positionIndex = 3 - (#visibleDrawCards - i)
-      visibleDrawCards[i].position = drawPilePositions[positionIndex]
+    local card = visibleDrawCards[i]
+    Helper.positionCardInDrawPile(card, i, #visibleDrawCards, cardsToShow, drawPilePositions)
+    -- Move card to top of render order
+    GrabberHelper.moveCardToTop(card)
+  end
+end
+
+-- Draw suit pile placeholders
+function Helper.drawSuitPilePlaceholders(suitPilePositions, suitImages, cardDimensions)
+  -- Use cached card dimensions
+  local cardWidth, cardHeight = cardDimensions.width, cardDimensions.height
+  
+  -- Draw placeholders for each suit pile
+  for i, suit in ipairs({"Spades", "Hearts", "Clubs", "Diamonds"}) do
+    local pos = suitPilePositions[i]
+    
+    -- Semi-transparent white background
+    love.graphics.setColor(1, 1, 1, 0.4)  -- Semi-transparent white
+    love.graphics.rectangle("fill", pos.x, pos.y, cardWidth, cardHeight, 6, 6)
+    
+    -- Border
+    if suit == "Hearts" or suit == "Diamonds" then
+      love.graphics.setColor(1, 0, 0, 0.7)  -- Red border for red suits
     else
-      -- Other cards are stacked at the first position
-      visibleDrawCards[i].position = drawPilePositions[1]
-      visibleDrawCards[i].canDrag = false
+      love.graphics.setColor(0, 0, 0, 0.7)  -- Black border for black suits
+    end
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle("line", pos.x, pos.y, cardWidth, cardHeight, 6, 6)
+    
+    -- Draw suit image instead of text label
+    love.graphics.setColor(1, 1, 1, 1)
+    local image = suitImages[suit]
+    local scale = 3
+    local imgWidth, imgHeight = image:getDimensions()
+    love.graphics.draw(
+      image, 
+      pos.x + cardWidth/2 - (imgWidth*scale)/2, 
+      pos.y + cardHeight/2 - (imgHeight*scale)/2,
+      0,  -- rotation
+      scale, scale  -- scale x, y
+    )
+  end
+end
+
+-- Handle click on deck pile
+function Helper.handleDeckPileClick(deckPile, drawPile, visibleDrawCards, drawPilePositions, GrabberHelper)
+  if #deckPile > 0 then
+    -- Calculate number of new cards to show
+    local cardsToShow = math.min(3, #deckPile)
+    
+    -- Move all currently visible cards to position 1 and set them non-draggable
+    for _, card in ipairs(visibleDrawCards) do
+      card.position = drawPilePositions[1]
+      card.canDrag = false
+      card.state = CARD_STATE.IDLE
+    end
+    
+    -- Draw new cards
+    for i = 1, cardsToShow do
+      local card = table.remove(deckPile)
+      card.faceUp = true
+      card.state = CARD_STATE.IDLE
+      
+      -- Ensure new cards are on top of render order
+      GrabberHelper.moveCardToTop(card)
+      
+      table.insert(drawPile, card)
+      table.insert(visibleDrawCards, card)
+    end
+    
+    -- Update positions and draggable state using Helper function
+    local visibleCount = math.min(3, #visibleDrawCards)
+    for i = 1, #visibleDrawCards do
+      local card = visibleDrawCards[i]
+      Helper.positionCardInDrawPile(card, i, #visibleDrawCards, visibleCount, drawPilePositions)
+    end
+    
+  elseif #drawPile > 0 then
+    -- No cards in deck pile, recycle draw pile
+    visibleDrawCards = {}
+    while #drawPile > 0 do
+      local card = table.remove(drawPile)
+      card.faceUp = false
+      card.canDrag = false
+      card.state = CARD_STATE.IDLE
+      card.position = Vector(50, 50) -- Return to deck pile position
+      table.insert(deckPile, card)
     end
   end
   
-  -- Update draggable status
-  Helper.updateDrawPileDraggableCards(drawPile, visibleDrawCards)
+  return deckPile, drawPile, visibleDrawCards
 end
 
 return Helper

@@ -41,11 +41,11 @@ function CardClass:new(xPos, yPos, suit, value, faceUp)
   card.position = Vector(xPos, yPos)
   card.state = CARD_STATE.IDLE
   
-  card.suit = suit or "Spades"
-  card.value = value or 1
+  card.suit = suit
+  card.value = value
   card.faceUp = faceUp or false
   card.canDrag = false
-  card.isDeckPile = false  -- Flag to identify if card is in deck pile
+  card.isDeckPile = false
   
   return card
 end
@@ -58,12 +58,10 @@ end
 
 function CardClass:draw()
   if self.faceUp then
-    -- face up: draw image, original size
     local img = cardImages[self.suit][self.value]
     love.graphics.draw(img, self.position.x, self.position.y)
   else
-    -- back side: draw image, original size
-    -- Use return image if deck pile is empty and this is the deck pile placeholder
+    -- Use return image if deck pile is empty
     if #deckPile == 0 and self.isDeckPile then
       love.graphics.draw(returnBackImage, self.position.x, self.position.y)
     else
@@ -74,38 +72,39 @@ end
 
 -- Check if mouse is over the card
 function CardClass:checkForMouseOver(grabber)
+  -- Skip check if card is already grabbed
   if self.state == CARD_STATE.GRABBED then
     return
   end
+  
   local mousePos = grabber.currentMousePos
-  local img
+  local w, h = self:getCardDimensions()
   
-  if self.faceUp then
-    img = cardImages[self.suit][self.value]
-  else
-    -- Use appropriate back image based on deck state
-    if #deckPile == 0 and self.isDeckPile then
-      img = returnBackImage
-    else
-      img = cardBackImage
-    end
-  end
+  -- Check card position in tableau piles
+  local isInTableauPile, visibleHeight = self:getTableauPileInfo()
   
-  local w, h = img:getWidth(), img:getHeight()
+  -- Determine if mouse is over this card
+  local isMouseOver = self:isPointOverCard(mousePos.x, mousePos.y, w, h, isInTableauPile, visibleHeight)
   
-  -- Check if this card is in a tableau pile, and is not the top card
+  -- Update card state based on mouse position
+  self.state = isMouseOver and CARD_STATE.MOUSE_OVER or CARD_STATE.IDLE
+end
+
+-- Helper function to check card position in tableau piles
+function CardClass:getTableauPileInfo()
   local isInTableauPile = false
   local isTopCard = true
-  local visibleHeight = h  -- Default whole card visible
+  local visibleHeight = nil  -- Will be set to card height or 20 for stacked cards
   
-  for pileIndex, pile in ipairs(tableauPiles) do
+  -- Check each tableau pile
+  for _, pile in ipairs(tableauPiles) do
     for cardIndex, card in ipairs(pile) do
       if card == self then
         isInTableauPile = true
-        -- if not the top card on the pile
+        -- If not the top card, only a portion is visible
         if cardIndex < #pile then
           isTopCard = false
-          visibleHeight = 20
+          visibleHeight = 20  -- Only 20 pixels visible for stacked cards
         end
         break
       end
@@ -113,29 +112,28 @@ function CardClass:checkForMouseOver(grabber)
     if isInTableauPile then break end
   end
   
-  -- check if mouse is over the card
-  local isMouseOver = false
-  
-  if isInTableauPile and not isTopCard then
-    -- if in tableau pile and not the top card, only check the top visible area of the card
-    isMouseOver = 
-      mousePos.x > self.position.x and 
-      mousePos.x < self.position.x + w and 
-      mousePos.y > self.position.y and
-      mousePos.y < self.position.y + visibleHeight
-  else
-    -- other cases (single card or top card on pile), check the whole card area
-    isMouseOver = 
-      mousePos.x > self.position.x and 
-      mousePos.x < self.position.x + w and 
-      mousePos.y > self.position.y and
-      mousePos.y < self.position.y + h
+  -- If not set yet, use full card height
+  if not visibleHeight then
+    visibleHeight = self:getCardDimensions()
   end
   
-  if isMouseOver then
-    self.state = CARD_STATE.MOUSE_OVER
+  return isInTableauPile, visibleHeight
+end
+
+-- Helper function to check if a point is over the card
+function CardClass:isPointOverCard(x, y, width, height, isInTableauPile, visibleHeight)
+  -- For tableau cards that are not on top, only check the visible portion
+  if isInTableauPile and visibleHeight == 20 then
+    return x > self.position.x and 
+           x < self.position.x + width and 
+           y > self.position.y and
+           y < self.position.y + visibleHeight
   else
-    self.state = CARD_STATE.IDLE
+    -- For other cards, check the whole area
+    return x > self.position.x and 
+           x < self.position.x + width and 
+           y > self.position.y and
+           y < self.position.y + height
   end
 end
 

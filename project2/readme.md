@@ -2,88 +2,55 @@
 
 Card assets from [Screaming Brain Studios](https://screamingbrainstudios.itch.io/poker-pack)
 
-## Features & Enhancements
-
-### Visual Improvements
-- Implemented graphical suit icons (♠️♥️♣️♦️) to replace text labels in suit piles
-- Optimized rendering order to ensure cards properly overlay suit placeholder images
-- Added elegant animations for victory and card movements
-
-### Bug Fixes & Technical Improvements
-- Resolved King card misalignment when placed on empty tableau piles
-  - Standardized coordinate calculations (150px x-coordinate used consistently)
-  - Fixed inconsistencies between card initialization and placement logic
-- Reorganized code into modular components for better maintainability
+### Bug Fixes & Improvements
+- Fixed inconsistencies between card initialization and placement logic
+- Create helper.lua and grabber.lua to help main.lua and grabber.lua
 - Implemented proper drag-and-drop behavior for card stacks
+- Added a restart button
+- Implemented graphical suit icons (♠️♥️♣️♦️) to replace text labels in suit piles
+- Added a win screen
 
-### Gameplay Enhancements
-- Added victory screen with pulsing animation when player completes the game
-- Implemented comprehensive win condition checking (all cards face-up or all suit piles filled)
-- Added automatic card reorganization when removing cards from draw pile
+## Programming Patterns Used
 
-### User Experience
-- Added restart functionality with confirmation dialog to prevent accidental resets
-- Improved visual feedback for card interactions
-- Enhanced card pile management with clearer visual indicators
 
-## Programming Patterns & Architecture
+### 1. Update Method Pattern
+- Each card has its own update method (`card:update()`), which allows you to know the state of each card and keep track of whether the card's position makes sense.
 
-### Object-Oriented Approach
-- Leveraged Lua's metatable system to implement class-like structures
-- Created specialized classes for cards, input handling, and UI management
-- Organized code into logical modules with clear responsibilities
+### 2. State Pattern
+- Cards have clear states (IDLE, MOUSE_OVER, GRABBED), which determine the behavior of the card. This allows you to determine whether a card can be moved based on its different states.
 
-### State Management
-- Implemented a robust state system for cards (IDLE, MOUSE_OVER, GRABBED)
-- Created distinct game states (normal play, victory, confirmation dialogs)
-- Managed transitions between states with appropriate visual feedback
+### 3. Component Pattern
+- Move part of main.lua to helper.lua for easier management. Similarly, move part of grabber.lua to grabber_helper.lua to achieve the same purpose.
 
-### Observer Pattern
-- Developed an input system that observes mouse movements and triggers appropriate actions
-- Cards observe their position in piles to determine behavior and appearance
-- Game state observers trigger appropriate visual changes and animations
+### 4. Game Loop Pattern
+- Allow the game to continuously update the gameplay process.
 
-### Factory Pattern
-- Created a deck generation system that handles card creation and randomization
-- Standardized UI element creation for consistency throughout the interface
-- Implemented modular creation of game components for easier maintenance
+## Project Postmortem
+#### 1. Card Movement Logic Issues
+- **Problem**: In Project 1, card movement was tightly coupled with rendering, making the code hard to maintain
+- **Plan**: Extract movement logic into dedicated helper functions and modules
+- **Result**: Successfully created dedicated grabber.lua and grabber_helper.lua modules that handle movement separately from rendering, significantly improving code clarity
 
-## Development Insights
+#### 2. Draw Pile Management
+- **Problem**: Project 1 has bugs in the handling of the draw pile cards, with cards not stacking correctly and showing when they shouldn't.
+- **Plan**: Redesign the draw pile mechanism, put the drawn card in the first position and let other cards cover it.
+- **Result**: The draw pile is handled correctly, with sound logic to reveal the top three cards and move the previously visible card to position 1.
 
-### Challenges Addressed
+#### 3. Poor Code Organization
+- **Problem**: Most of the functions of Project 1 are contained in the main.lua and grabber.lua files, which are not very readable.
+- **Plan**: Refactor into modular components with clear responsibilities
+- **Result**: Successfully split code into different file (helper.lua, grabber.lua, grabber_helper.lua, card.lua, restart.lua).
 
-#### Improved Code Organization
-- **Previous Issue**: Card movement logic was tightly coupled with rendering code
-- **Solution**: Separated concerns by moving functionality into dedicated modules
-- **Outcome**: Significantly improved maintainability and reduced debugging time
+#### 4. Limited Visual Feedback
+- **Problem**: The cards in project1 are too simple and not good enough.
+- **Plan**: use free game asset
+- **Result**: Implemented suit icons, card images, and the win screen.
 
-#### Positioning System Refinement
-- **Previous Issue**: Inconsistent hard-coded positioning led to visual glitches
-- **Solution**: Implemented standardized position calculations across all card functions
-- **Outcome**: Eliminated alignment issues and improved visual consistency
-
-#### Enhanced Visual Feedback
-- **Previous Issue**: Basic representation of game elements limited player engagement
-- **Solution**: Added proper graphics, animations, and interactive elements
-- **Outcome**: Created a more polished and enjoyable gaming experience
-
-#### Comprehensive Game Flow
-- **Previous Issue**: Limited game lifecycle management (no victory or restart)
-- **Solution**: Implemented complete game loop with proper state transitions
-- **Outcome**: Delivered a complete game experience with appropriate feedback
-
-### Future Development Opportunities
-- Implement undo/redo functionality for player moves
-- Add sound effects and background music
-- Create multiple difficulty levels or alternative rule sets
-- Enhance animations and visual effects
-- Add scoring system with persistent high scores
-
+#### Future Improvement Opportunities
+- Add an Undo button, allowing the player to undo the previous step. Add sound effects, and maybe some animations.
 
 ## References
 - calling function from different lua file: https://stackoverflow.com/questions/22303018/calling-function-from-a-different-lua-file
-
 - shuffle cards: https://gist.github.com/Uradamus/10323382
-
 - get images' width and height: https://love2d.org/forums/viewtopic.php?t=9710
 - find images: https://github.com/ZacEmerzian/CMPM121/blob/main/Day%2010%20Demo/sample4.lua

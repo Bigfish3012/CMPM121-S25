@@ -1,6 +1,4 @@
 -- restart.lua
--- Handles restart functionality for solitaire game
-
 -- Define restart button properties (to be initialized in init function)
 local RestartModule = {
     button = nil,
@@ -79,7 +77,7 @@ function RestartModule.drawConfirmDialog()
     love.graphics.rectangle("fill", noButtonX, noButtonY, buttonWidth, buttonHeight, 5, 5)
     love.graphics.setColor(1, 1, 1, 1) -- White text
     love.graphics.printf("NO", noButtonX, noButtonY + 6, buttonWidth, "center")
-    
+
     -- Reset font
     love.graphics.setFont(love.graphics.newFont(12))
 end
@@ -106,10 +104,17 @@ function RestartModule.restartGame()
   fullDeck = createDeck()
 
   -- Put the entire deck into deckPile (top left)
-  for _, card in ipairs(fullDeck) do
+  for i, card in ipairs(fullDeck) do
     card.position = Vector(50, 50)
     card.canDrag = false
     card.faceUp = false
+    card.state = CARD_STATE.IDLE
+    
+    -- Mark the first card as the deck pile indicator
+    if i == 1 then
+      card.isDeckPile = true
+    end
+    
     table.insert(deckPile, card)
     table.insert(cardTable, card) -- Add all cards to cardTable for draw and update
   end
@@ -124,8 +129,19 @@ function RestartModule.restartGame()
       card.position = Vector(startX + (i - 1) * 95, 190 + (j - 1) * 20)
       card.faceUp = (j == i) -- Only the top card is face up
       card.canDrag = (j == i)
+      card.state = CARD_STATE.IDLE
       table.insert(tableauPiles[i], card)
+      table.insert(cardTable, card) -- add the card to cardTable
     end
+  end
+  
+  -- reset grabber state
+  if grabber then
+    grabber.heldObject = nil
+    grabber.grabPos = nil
+    grabber.dragOffset = nil
+    grabber.heldStack = {}
+    grabber.ignoreNextGrab = false
   end
 end
 
