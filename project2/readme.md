@@ -1,6 +1,8 @@
 # CMPM 121 Spring 2025 -- Project 2 - Solitaire, but better
 
 Card assets from [Screaming Brain Studios](https://screamingbrainstudios.itch.io/poker-pack)
+## Used Tool
+- [Sprite](https://www.piskelapp.com/p/create/sprite/)
 
 ### Bug Fixes & Improvements
 - Fixed inconsistencies between card initialization and placement logic
