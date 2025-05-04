@@ -32,7 +32,7 @@ function love.load()
   
   -- Add game state
   gameState = {
-    hasWon = true,
+    hasWon = false,
     showRestartConfirm = false  -- Flag to show restart confirmation dialog
   }
   
@@ -47,10 +47,10 @@ function love.load()
   
   -- Positions for suit piles
   suitPilePositions = {
-    Vector(435, 50), -- Spades
-    Vector(530, 50), -- Hearts
-    Vector(625, 50), -- Clubs
-    Vector(720, 50)  -- Diamonds
+    Vector(435, 50),
+    Vector(530, 50),
+    Vector(625, 50),
+    Vector(720, 50) 
   }
 
   -- Create the suit piles
@@ -110,7 +110,6 @@ function love.update()
   -- Update draggable state of cards in suit piles
   Helper.updateSuitPilesDraggableCards(suitPiles)
   
-  -- Check if player has won the game
   Helper.checkForWin(gameState, cardTable, suitPiles)
 end
 
@@ -131,15 +130,11 @@ function love.draw()
     card:draw()
   end
   
-  -- Draw Restart button
+  -- check restart
   RestartModule.drawButton()
-  
-  -- Draw victory screen if player has won
   if gameState.hasWon then
     Helper.drawWinScreen(gameState)
   end
-  
-  -- Draw restart confirmation dialog
   if gameState.showRestartConfirm then
     RestartModule.drawConfirmDialog()
   end

@@ -50,7 +50,8 @@ Card assets from [Screaming Brain Studios](https://screamingbrainstudios.itch.io
 - Add an Undo button, allowing the player to undo the previous step. Add sound effects, and maybe some animations.
 
 ## References
-- calling function from different lua file: https://stackoverflow.com/questions/22303018/calling-function-from-a-different-lua-file
-- shuffle cards: https://gist.github.com/Uradamus/10323382
-- get images' width and height: https://love2d.org/forums/viewtopic.php?t=9710
-- find images: https://github.com/ZacEmerzian/CMPM121/blob/main/Day%2010%20Demo/sample4.lua
+- Calling function from different lua file: https://stackoverflow.com/questions/22303018/calling-function-from-a-different-lua-file
+- Shuffle cards: https://gist.github.com/Uradamus/10323382
+- Get images' width and height: https://love2d.org/forums/viewtopic.php?t=9710
+- Find images: https://github.com/ZacEmerzian/CMPM121/blob/main/Day%2010%20Demo/sample4.lua
+- return a table: https://love2d.org/forums/viewtopic.php?t=80609

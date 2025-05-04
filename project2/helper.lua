@@ -32,15 +32,10 @@ function Helper.drawWinScreen(gameState)
   love.graphics.translate(love.graphics.getWidth()/2, love.graphics.getHeight()/2)
   love.graphics.scale(scale, scale)
   
-  -- Use large font
   local font = love.graphics.newFont(72)
   love.graphics.setFont(font)
   love.graphics.printf("YOU WIN!!!", -300, -36, 600, "center")
-  
-  -- Restore default settings
   love.graphics.pop()
-  
-  -- Restore original font
   love.graphics.setFont(originalFont)
 end
 
@@ -138,8 +133,8 @@ function Helper.drawSuitPilePlaceholders(suitPilePositions, suitImages, cardDime
       image, 
       pos.x + cardWidth/2 - (imgWidth*scale)/2, 
       pos.y + cardHeight/2 - (imgHeight*scale)/2,
-      0,  -- rotation
-      scale, scale  -- scale x, y
+      0,
+      scale, scale
     )
   end
 end
