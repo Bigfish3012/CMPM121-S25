@@ -1,6 +1,6 @@
 # CMPM 121 Spring 2025 -- Project 2 - Solitaire, but better
 
-Card assets from [Screaming Brain Studios](https://screamingbrainstudios.itch.io/poker-pack)
+
 ## Used Tool
 - [Sprite](https://www.piskelapp.com/p/create/sprite/)
 
@@ -51,9 +51,12 @@ Card assets from [Screaming Brain Studios](https://screamingbrainstudios.itch.io
 #### Future Improvement Opportunities
 - Add an Undo button, allowing the player to undo the previous step. Add sound effects, and maybe some animations.
 
+## Assets
+Card assets from [Screaming Brain Studios](https://screamingbrainstudios.itch.io/poker-pack)
+
 ## References
 - Calling function from different lua file: https://stackoverflow.com/questions/22303018/calling-function-from-a-different-lua-file
 - Shuffle cards: https://gist.github.com/Uradamus/10323382
 - Get images' width and height: https://love2d.org/forums/viewtopic.php?t=9710
 - Find images: https://github.com/ZacEmerzian/CMPM121/blob/main/Day%2010%20Demo/sample4.lua
-- return a table: https://love2d.org/forums/viewtopic.php?t=80609
+- Return a table: https://love2d.org/forums/viewtopic.php?t=80609
