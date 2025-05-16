@@ -12,7 +12,7 @@ function Credit:new(width, height)
     credit.screenHeight = height or 800
     
     -- Load custom font
-    credit.titleFont = love.graphics.newFont("asset/fonts/Angels.ttf", 64)
+    credit.titleFont = love.graphics.newFont("asset/fonts/Angels.ttf", 100)
     credit.contentFont = love.graphics.newFont("asset/fonts/Angels.ttf", 32)
     credit.buttonFont = love.graphics.newFont("asset/fonts/Angels.ttf", 36)
     
@@ -54,7 +54,7 @@ function Credit:draw()
     -- Draw credits text
     love.graphics.setFont(self.contentFont)
     for i, line in ipairs(self.lines) do
-        love.graphics.printf(line, 0, 200 + (i-1) * 40, self.screenWidth, "center")
+        love.graphics.printf(line, 0, 300 + (i-1) * 50, self.screenWidth, "center")
     end
     
     -- Draw back button

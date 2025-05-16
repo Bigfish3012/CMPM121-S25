@@ -8,6 +8,7 @@ require "vector"
 require "title"
 require "credit"
 require "helper"
+require "grabber"
 
 local currentScreen = "title"
 local screenWidth = 1400
@@ -42,6 +43,7 @@ function initializeGame()
     
     -- Always reinitialize the game board on restart
     gameBoard = GameBoard:new(screenWidth, screenHeight)
+    grabber = GrabberClass:new()
     
     -- For testing the game over box
     -- gameOverBox:show("win")
@@ -50,6 +52,17 @@ end
 
 function love.update()
     -- Update game logic here
+    if currentScreen == "game" then
+        -- Update game board and grabber
+        grabber:update()
+        
+        -- Check for game over conditions
+        if gameState.hasWon then
+            showGameOver("win")
+        elseif gameState.showRestartConfirm then
+            showGameOver("lose")
+        end
+    end
 end
 
 function love.draw()
