@@ -43,7 +43,7 @@ function initializeGame()
     
     -- Always reinitialize the game board on restart
     gameBoard = GameBoard:new(screenWidth, screenHeight)
-    grabber = GrabberClass:new()
+    grabber = GrabberClass:new(gameBoard)
     
     -- For testing the game over box
     -- gameOverBox:show("win")
@@ -56,12 +56,16 @@ function love.update()
         -- Update game board and grabber
         grabber:update()
         
-        -- Check for game over conditions
-        if gameState.hasWon then
-            showGameOver("win")
-        elseif gameState.showRestartConfirm then
-            showGameOver("lose")
+        -- Check if mouse is over any cards
+        if grabber.currentMousePos then
+            for _, card in ipairs(gameBoard.cards or {}) do
+                if card then
+                    card:checkForMouseOver(grabber)
+                    card:update()
+                end
+            end
         end
+        
     end
 end
 
