@@ -12,13 +12,18 @@ CARD_STATE = {
 
 -- Card image cache to avoid repeated loading
 local cardImages = {}
+-- Power and mana cost icon caches
+local powerIcons = {}
+local manaCostIcons = {}
 
 CARD_INFO = {
     -- Format: {card name, mana cost, power value, description text}
     ["Wooden Cow"] = {name = "Wooden Cow", manaCost = 1, power = 1, text = "Vanilla"},
     ["Pegasus"] = {name = "Pegasus", manaCost = 3, power = 5, text = "Vanilla"},
     ["Minotaur"] = {name = "Minotaur", manaCost = 5, power = 9, text = "Vanilla"},
-    ["Titan"] = {name = "Titan", manaCost = 6, power = 12, text = "Vanilla"}
+    ["Zeus"] = {name = "Zeus", manaCost = 4, power = 4, text = "When Revealed: Lower the power of each card in your opponent's hand by 1."},
+    ["Ares"] = {name = "Ares", manaCost = 3, power = 3, text = "When Revealed: Gain +2 power for each enemy card here."},
+    ["Cyclops"] = {name = "Cyclops", manaCost = 3, power = 5, text = "When Revealed: Discard your other cards here, gain +2 power for each discarded."},
 }
 
 -- Load card image
@@ -29,9 +34,41 @@ function CardClass.loadCardImage(cardName)
     end
     
     -- load the card image
-    local imagePath = "asset/img/" .. cardName .. ".png"
+    local imagePath = "asset/sp/" .. cardName .. ".png"
     local image = love.graphics.newImage(imagePath)
     cardImages[cardName] = image
+    return image
+end
+
+-- Load power icon
+function CardClass.loadPowerIcon(powerValue)
+    -- Clamp power value to 0-9 range
+    local iconIndex = math.max(0, math.min(9, powerValue))
+    local iconKey = string.format("%02d", iconIndex)
+    
+    if powerIcons[iconKey] then
+        return powerIcons[iconKey]
+    end
+    
+    local imagePath = "asset/power/" .. iconKey .. ".png"
+    local image = love.graphics.newImage(imagePath)
+    powerIcons[iconKey] = image
+    return image
+end
+
+-- Load mana cost icon
+function CardClass.loadManaCostIcon(manaCost)
+    -- Clamp mana cost to 0-9 range
+    local iconIndex = math.max(0, math.min(9, manaCost))
+    local iconKey = string.format("%02d", iconIndex)
+    
+    if manaCostIcons[iconKey] then
+        return manaCostIcons[iconKey]
+    end
+    
+    local imagePath = "asset/manaCost/" .. iconKey .. ".png"
+    local image = love.graphics.newImage(imagePath)
+    manaCostIcons[iconKey] = image
     return image
 end
 
@@ -68,6 +105,25 @@ function CardClass:draw()
             love.graphics.setColor(1, 1, 1, 1)
             love.graphics.draw(self.image, self.position.x, self.position.y)
             
+            -- Draw mana cost icon in the top-left corner
+            if self.manaCost ~= nil then
+                local manaCostIcon = CardClass.loadManaCostIcon(self.manaCost)
+                if manaCostIcon then
+                    love.graphics.setColor(1, 1, 1, 1)
+                    love.graphics.draw(manaCostIcon, self.position.x + 5, self.position.y + 5)
+                end
+            end
+            
+            -- Draw power icon in the top-right corner
+            if self.power ~= nil then
+                local powerIcon = CardClass.loadPowerIcon(self.power)
+                if powerIcon then
+                    love.graphics.setColor(1, 1, 1, 1)
+                    local iconX = self.position.x + self.image:getWidth() - powerIcon:getWidth() - 5
+                    love.graphics.draw(powerIcon, iconX, self.position.y + 5)
+                end
+            end
+            
             -- Only draw the highlight border when mouse is hovering or grabbing
             if self.state == CARD_STATE.MOUSE_OVER or self.state == CARD_STATE.GRABBED then
                 love.graphics.setColor(1, 0.8, 0, 0.5) -- Semi-transparent highlight border
@@ -82,6 +138,24 @@ function CardClass:draw()
             love.graphics.setColor(0, 0, 0, 1)
             love.graphics.setFont(love.graphics.newFont(12))
             love.graphics.print(self.name, self.position.x + 10, self.position.y + 60)
+            
+            -- Draw mana cost and power icons even for placeholder cards
+            if self.manaCost ~= nil then
+                local manaCostIcon = CardClass.loadManaCostIcon(self.manaCost)
+                if manaCostIcon then
+                    love.graphics.setColor(1, 1, 1, 1)
+                    love.graphics.draw(manaCostIcon, self.position.x + 5, self.position.y + 5)
+                end
+            end
+            
+            if self.power ~= nil then
+                local powerIcon = CardClass.loadPowerIcon(self.power)
+                if powerIcon then
+                    love.graphics.setColor(1, 1, 1, 1)
+                    local iconX = self.position.x + 100 - powerIcon:getWidth() - 5
+                    love.graphics.draw(powerIcon, iconX, self.position.y + 5)
+                end
+            end
         end
     else
         -- Draw the back of the card
@@ -140,20 +214,8 @@ function CardClass:checkForMouseOver(grabber)
     -- Use the mouseOver method to check if mouse is over this card
     local isMouseOver = self:mouseOver(mousePos.x, mousePos.y)
     
-    -- Track state changes for debugging
-    local oldState = self.state
-    
     -- Update card state based on mouse position
     self.state = isMouseOver and CARD_STATE.MOUSE_OVER or CARD_STATE.IDLE
-    
-    -- Output debug info if the state changes
-    if oldState ~= self.state then
-        if self.state == CARD_STATE.MOUSE_OVER then
-            print("Card " .. self.name .. " state changed to MOUSE_OVER")
-        else
-            print("Card " .. self.name .. " state changed to IDLE")
-        end
-    end
 end
 
 function CardClass:description()
@@ -220,6 +282,11 @@ function CardClass:description()
     love.graphics.setFont(love.graphics.newFont(14))
     love.graphics.print(self.name, boxX + padding, boxY + padding)
 
+    -- Mana cost and power information
+    love.graphics.setFont(love.graphics.newFont(12))
+    local statsY = boxY + padding + 20
+    local statsText = "Mana: " .. (self.manaCost or "?") .. "  Power: " .. (self.power or "?")
+    love.graphics.print(statsText, boxX + padding, statsY)
     
     -- Card text/description
     love.graphics.setFont(love.graphics.newFont(10))
@@ -262,14 +329,6 @@ function CardClass:mouseOver(x, y)
            x < self.position.x + cardWidth and 
            y > self.position.y and
            y < self.position.y + cardHeight
-    
-    -- Add debug output for hover state changes (only when state changes)
-    if isOver and not self.wasHovered then
-        print("Mouse over card: " .. self.name .. " at " .. self.position.x .. "," .. self.position.y .. " (size: " .. cardWidth .. "x" .. cardHeight .. ")")
-        self.wasHovered = true
-    elseif not isOver and self.wasHovered then
-        self.wasHovered = false
-    end
     
     return isOver
 end

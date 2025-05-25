@@ -2,13 +2,11 @@ Card Name	Cost(Mana)	Power	Text
 Wooden Cow	1	1	Vanilla
 Pegasus	3	5	Vanilla
 Minotaur	5	9	Vanilla
-Titan	6	12	Vanilla
 Zeus	4	4	When Revealed: Lower the power of each card in your opponent's hand by 1.
 Ares	3	3	When Revealed: Gain +2 power for each enemy card here.
 Medusa	3	3	When ANY other card is played here, lower that card's power by 1.
 Cyclops	3	5	When Revealed: Discard your other cards here, gain +2 power for each discarded.
 Poseidon	4	4	When Revealed: Move away an enemy card here with the lowest power.
-Artemis	6	8	When Revealed: Gain +5 power if there is exactly one enemy card here.
 Hera	2	2	When Revealed: Give cards in your hand +1 power.
 Demeter	0	0	When Revealed: Both players draw a card.
 Hades	6	6	When Revealed: Gain +2 power for each card in your discard pile.
@@ -25,11 +23,6 @@ Apollo	0	0	When Revealed: Gain +1 mana next turn.
 Hephaestus	2	3	When Revealed: Lower the cost of 2 cards in your hand by 1.
 Persephone	2	2	When Revealed: Discard the lowest power card in your hand.
 Prometheus	3	3	When Revealed: Draw a card from your opponent's deck.
-Pandora	6	7	When Revealed: If no ally cards are here, lower this card's power by 5.
 Icarus	3	5	End of Turn: Gains +1 power, but is discarded when its power is greater than 7.
 Iris	3	3	End of Turn: Give your cards at each other location +1 power if they have unique powers.
-Nyx	5	5	When Revealed: Discards your other cards here, add their power to this card.
-Altas	5	9	End of Turn: Loses 1 power if your side of this location is full.
-Daedalus	6	12	When Revealed: Add a Wooden Cow to each other location.
 Helios	3	4	End of Turn: Discard this.
-Mnemosyne	5	9	When Revealed: Add a copy of the last card you played to your hand.

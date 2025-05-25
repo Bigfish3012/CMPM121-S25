@@ -10,6 +10,8 @@ require "credit"
 require "helper"
 require "grabber"
 
+local GameLogic = require "game"
+
 local currentScreen = "title"
 local screenWidth = 1400
 local screenHeight = 800
@@ -44,10 +46,8 @@ function initializeGame()
     -- Always reinitialize the game board on restart
     gameBoard = GameBoard:new(screenWidth, screenHeight)
     grabber = GrabberClass:new(gameBoard)
-    
-    -- For testing the game over box
-    -- gameOverBox:show("win")
-    -- gameOverBox:show("lose")
+    GameLogic.init(gameBoard)
+
 end
 
 function love.update()
@@ -66,6 +66,15 @@ function love.update()
             end
         end
         
+        -- Check win conditions
+        local winner = GameLogic:checkWinCondition(gameBoard)
+        if winner then
+            if winner == "player" then
+                showGameOver("win")
+            else
+                showGameOver("lose")
+            end
+        end
     end
 end
 
@@ -130,4 +139,16 @@ end
 -- Function to show game over message
 function showGameOver(result)
     gameOverBox:show(result)  -- "win" or "lose"
+end
+
+-- add for debug
+function love.keypressed(key)
+    if currentScreen == "game" then
+        if key == "space" then
+            -- end turn by space
+            local GameLogic = require "game"
+            GameLogic:endTurn()
+            print("Turn ended by player. Current turn: " .. GameLogic.currentPlayer)
+        end
+    end
 end

@@ -4,6 +4,10 @@
 
 ## Assets
 - Title screen font: https://www.dafont.com/angels.font
+- card images:
+    - https://deepdivegamestudio.itch.io/demon-sprite-pack
+    - https://deepdivegamestudio.itch.io/holyassetpack
+    - https://deepdivegamestudio.itch.io/monsterassetpack
 
 ## References
 - make different screen: https://love2d.org/forums/viewtopic.php?t=93629

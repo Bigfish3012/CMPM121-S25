@@ -132,7 +132,26 @@ function GrabberClass:release()
             end
         else
             print("  Card dropped in valid zone")
-            -- Card stays where it was dropped
+            
+            -- get game logic
+            local GameLogic = require "game"
+            
+            -- check if the card is a player card
+            local isPlayerCard = GameLogic:isPlayerCard(self.heldObject, self.gameBoard)
+            
+            -- try to play the card (spend mana and trigger effects)
+            local cardPlayed = GameLogic:playCard(self.heldObject, self.gameBoard, isPlayerCard)
+            
+            if cardPlayed then
+                print("  Card successfully played with effects triggered")
+                -- Card stays where it was dropped and effects are triggered
+            else
+                -- if mana is not enough, return to original position
+                if self.heldObject.originalPosition then
+                    self.heldObject.position = self.heldObject.originalPosition
+                    print("  Not enough mana, card returned to original position")
+                end
+            end
         end
     end
     

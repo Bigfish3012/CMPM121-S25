@@ -13,14 +13,14 @@ function GameBoard:new(width, height)
     
     -- Card slot properties
     gameBoard.slotWidth = 800
-    gameBoard.slotHeight = 140  -- Adjusted to card height (120) plus some spacing
+    gameBoard.slotHeight = 140
     
     -- Initialize player and opponent card collections
     gameBoard.playerDeck = {}
     gameBoard.opponentDeck = {}
     gameBoard.playerHand = {}
     gameBoard.opponentHand = {}
-    gameBoard.cards = {} -- All cards reference for mouse interaction
+    gameBoard.cards = {}
     
     -- Initialize the decks and draw starting hands
     gameBoard:initializeDecks()
@@ -37,10 +37,10 @@ function GameBoard:draw()
     -- Card height
     local cardHeight = 120
     
-    -- Draw the top card slot
+    -- Draw the opponent's card slot
     self:drawCardSlot(nil, 20, cardHeight)
-    -- Draw the bottom card slot
-    self:drawCardSlot(nil, self.screenHeight - 140, cardHeight)
+    -- Draw the player's card slot
+    self:drawCardSlot(nil, self.screenHeight - 160, cardHeight)
     
     -- Draw discard piles
     self:drawDiscardPile(nil)
@@ -61,21 +61,21 @@ end
 -- Function to draw the semi-transparent card slot at the top or bottom
 function GameBoard:drawCardSlot(x, y, height)
     -- Use provided coordinates or default values if not provided
-    local slotX = x or (self.screenWidth - self.slotWidth) / 2  -- Default: centered horizontally
-    local slotY = y or (self.screenHeight - self.slotHeight - 20)  -- Default: near the bottom
+    local slotX = x or (self.screenWidth - self.slotWidth) / 2
+    local slotY = y or (self.screenHeight - self.slotHeight - 20)
     
     -- Get card height from parameter or use default
-    local cardHeight = height or 120  -- Default card height is 120
+    local cardHeight = height or 120
     
     -- Calculate required slot height - slightly larger than card height to leave some space
     local slotHeight = cardHeight + 20
     
     -- Draw semi-transparent white card slot
-    love.graphics.setColor(1, 1, 1, 0.5)  -- Semi-transparent white
-    love.graphics.rectangle("fill", slotX, slotY, self.slotWidth, slotHeight, 10, 10)  -- Rounded corners (radius 10)
+    love.graphics.setColor(1, 1, 1, 0.5)
+    love.graphics.rectangle("fill", slotX, slotY, self.slotWidth, slotHeight, 10, 10)
     
     -- Draw card slot border
-    love.graphics.setColor(0.9, 0.9, 0.9, 0.7)  -- Semi-transparent light gray
+    love.graphics.setColor(0.9, 0.9, 0.9, 0.7)
     love.graphics.setLineWidth(3)
     love.graphics.rectangle("line", slotX, slotY, self.slotWidth, slotHeight, 10, 10)
     
@@ -87,9 +87,17 @@ function GameBoard:drawDiscardPile(card)
     -- for player side, draw the discard pile on the bottom right
     -- for the opponent side, draw the discard pile on the top left
     
+    -- Get card dimensions from the card back image
+    if not self.cardBackImage then
+        self.cardBackImage = love.graphics.newImage("asset/img/card_back.png")
+    end
+    
+    local cardWidth = self.cardBackImage:getWidth()
+    local cardHeight = self.cardBackImage:getHeight()
+    
     -- Draw player's discard pile (bottom right)
-    local playerDiscardX = self.screenWidth - 120
-    local playerDiscardY = self.screenHeight - 140
+    local playerDiscardX = self.screenWidth - cardWidth - 20
+    local playerDiscardY = self.screenHeight - cardHeight - 20
     
     -- Draw opponent's discard pile (top left)
     local opponentDiscardX = 20
@@ -99,16 +107,16 @@ function GameBoard:drawDiscardPile(card)
     love.graphics.setColor(1, 1, 1, 0.3)  -- More transparent than card slots
     
     -- Player's discard pile
-    love.graphics.rectangle("fill", playerDiscardX, playerDiscardY, 100, 120, 10, 10)
+    love.graphics.rectangle("fill", playerDiscardX, playerDiscardY, cardWidth, cardHeight, 10, 10)
     love.graphics.setColor(0.9, 0.9, 0.9, 0.5)
     love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", playerDiscardX, playerDiscardY, 100, 120, 10, 10)
+    love.graphics.rectangle("line", playerDiscardX, playerDiscardY, cardWidth, cardHeight, 10, 10)
     
     -- Opponent's discard pile
     love.graphics.setColor(1, 1, 1, 0.3)
-    love.graphics.rectangle("fill", opponentDiscardX, opponentDiscardY, 100, 120, 10, 10)
+    love.graphics.rectangle("fill", opponentDiscardX, opponentDiscardY, cardWidth, cardHeight, 10, 10)
     love.graphics.setColor(0.9, 0.9, 0.9, 0.5)
-    love.graphics.rectangle("line", opponentDiscardX, opponentDiscardY, 100, 120, 10, 10)
+    love.graphics.rectangle("line", opponentDiscardX, opponentDiscardY, cardWidth, cardHeight, 10, 10)
     
     -- If a card is provided, draw it in the appropriate discard pile
     if card then
@@ -116,12 +124,12 @@ function GameBoard:drawDiscardPile(card)
         local discardX, discardY
         if card.position.y > self.screenHeight / 2 then
             -- Card is in player's half, use player's discard pile
-            discardX = playerDiscardX + 10
-            discardY = playerDiscardY + 10
+            discardX = playerDiscardX
+            discardY = playerDiscardY
         else
             -- Card is in opponent's half, use opponent's discard pile
-            discardX = opponentDiscardX + 10
-            discardY = opponentDiscardY + 10
+            discardX = opponentDiscardX
+            discardY = opponentDiscardY
         end
         
         -- Draw the card
@@ -145,7 +153,7 @@ function GameBoard:drawDeckPile(card)
     
     -- Draw player's deck (bottom left)
     local playerDeckX = 20
-    local playerDeckY = self.screenHeight - 140
+    local playerDeckY = self.screenHeight - 160
     
     -- Draw opponent's deck (top right)
     local opponentDeckX = self.screenWidth - 120
@@ -206,7 +214,7 @@ function GameBoard:drawManaPool()
     
     -- Player mana pool position (near discard pile on the bottom right)
     local playerManaStartX = self.screenWidth - 270  -- Left of discard pile
-    local playerManaY = self.screenHeight - 140  -- Same level as discard pile
+    local playerManaY = self.screenHeight - 160  -- Same level as discard pile
     
     -- Opponent mana pool position (near discard pile on the top left)
     local opponentManaStartX = 150  -- Right of discard pile
@@ -322,7 +330,7 @@ function GameBoard:positionHandCards()
     
     -- Get the position and dimensions of top and bottom card slots
     local topSlotX, topSlotY, topSlotWidth, topSlotHeight = self:drawCardSlot(nil, 20, cardHeight)
-    local bottomSlotX, bottomSlotY, bottomSlotWidth, bottomSlotHeight = self:drawCardSlot(nil, self.screenHeight - 140, cardHeight)
+    local bottomSlotX, bottomSlotY, bottomSlotWidth, bottomSlotHeight = self:drawCardSlot(nil, self.screenHeight - 160, cardHeight)
     
     -- Calculate card spacing
     local cardSpacing = 110  -- Space between cards
@@ -392,7 +400,7 @@ function GameBoard:checkCardDropZones(card)
     local cardCenterY = card.position.y + cardHeight / 2
     
     -- Bottom slot position and dimensions
-    local slotX, slotY, slotWidth, slotHeight = self:drawCardSlot(nil, self.screenHeight - 140, cardHeight)
+    local slotX, slotY, slotWidth, slotHeight = self:drawCardSlot(nil, self.screenHeight - 160, cardHeight)
     
     -- Check if card is in the bottom slot (player's play area)
     if cardCenterX > slotX and cardCenterX < slotX + slotWidth and
