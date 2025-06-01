@@ -2,7 +2,8 @@
 -- Implements card dragging functionality
 
 require "vector"
-
+local GameLogic = require "game"
+local CardEffects = require "cards_eff"
 GrabberClass = {}
 
 function GrabberClass:new(gameBoard)
@@ -10,31 +11,35 @@ function GrabberClass:new(gameBoard)
     local metadata = {__index = GrabberClass}
     setmetatable(grabber, metadata)
     
-    -- Mouse tracking
-    grabber.currentMousePos = nil  -- Current mouse position
-    grabber.grabPos = nil          -- Position where mouse was clicked
-    grabber.dragOffset = nil       -- Offset between mouse position and card position
-    
-    -- Card tracking
-    grabber.heldObject = nil       -- Currently held card
-    grabber.gameBoard = gameBoard  -- Reference to the game board
+    grabber.currentMousePos = nil  
+    grabber.grabPos = nil          
+    grabber.dragOffset = nil    
+    grabber.heldObject = nil       
+    grabber.gameBoard = gameBoard 
     
     return grabber
 end
 
 function GrabberClass:update()
-    -- Update mouse position
     self.currentMousePos = Vector(
         love.mouse.getX(),
         love.mouse.getY()
     )
     
+    -- Check for mouse hover on cards (only when not grabbing anything)
+    if not self.heldObject and self.gameBoard and self.gameBoard.cards then
+        for _, card in ipairs(self.gameBoard.cards) do
+            if card then
+                card:checkForMouseOver(self)
+            end
+        end
+    end
+    
     -- Handle mouse click (first frame only)
     if love.mouse.isDown(1) then
-        if self.grabPos == nil then  -- First frame of click
+        if self.grabPos == nil then
             local mx, my = love.mouse.getPosition()
             self.grabPos = Vector(mx, my)
-            print("Mouse clicked at: " .. mx .. "," .. my)
             self:grab()
         end
     else
@@ -64,54 +69,25 @@ end
 function GrabberClass:grab()
     -- Check if game board is available
     if not self.gameBoard then 
-        print("Error: gameBoard not set in grabber")
         return 
     end
     
     local mx = self.grabPos.x
     local my = self.grabPos.y
-    local foundCard = false
-    
-    print("Attempting to grab card at: " .. mx .. "," .. my)
     
     -- Loop through all cards to find one under the mouse
     for _, card in ipairs(self.gameBoard.cards) do
         -- Check if mouse is over this card
         if card:mouseOver(mx, my) then
-            foundCard = true
-            
-            -- Output debug info
-            print("Found card at mouse position: " .. card.name)
-            print("  Card state: " .. tostring(card.state))
-            print("  Card canDrag: " .. tostring(card.canDrag))
-            
             -- Card must be in IDLE or MOUSE_OVER state and draggable
             if (card.state == CARD_STATE.IDLE or card.state == CARD_STATE.MOUSE_OVER) and card.canDrag then
-                -- Set card as held object
                 self.heldObject = card
                 self.heldObject.state = CARD_STATE.GRABBED
-                print("Grabbed card: " .. card.name)
-                
-                -- Store original position for snap back if needed
                 self.heldObject.originalPosition = Vector(card.position.x, card.position.y)
-                
-                -- Calculate drag offset (difference between mouse and card positions)
-                self.dragOffset = Vector(
-                    mx - card.position.x,
-                    my - card.position.y
-                )
-                
-                -- Bring card to top visually (handled by draw order in gameBoard)
-                
+                self.dragOffset = Vector(mx - card.position.x, my - card.position.y)
                 break
-            else
-                print("  Can't grab card: state=" .. tostring(card.state) .. ", canDrag=" .. tostring(card.canDrag))
             end
         end
-    end
-    
-    if not foundCard then
-        print("No card found at mouse position: " .. mx .. "," .. my)
     end
 end
 
@@ -119,37 +95,41 @@ end
 function GrabberClass:release()
     -- If we have a held card
     if self.heldObject then
-        print("Released card: " .. self.heldObject.name)
-        
         -- Check if the card is in a valid drop zone
-        local validDrop = self:checkValidDropZone()
+        local locationIndex, slotIndex, isPlayer = self:checkValidDropZone()
         
-        if not validDrop then
+        if not locationIndex then
             -- If not a valid drop, return card to original position
             if self.heldObject.originalPosition then
                 self.heldObject.position = self.heldObject.originalPosition
-                print("  Card returned to original position")
             end
         else
-            print("  Card dropped in valid zone")
+            -- Try to place the card in the slot
+            local cardPlaced = self.gameBoard:placeCardInSlot(self.heldObject, locationIndex, slotIndex, isPlayer)
             
-            -- get game logic
-            local GameLogic = require "game"
-            
-            -- check if the card is a player card
-            local isPlayerCard = GameLogic:isPlayerCard(self.heldObject, self.gameBoard)
-            
-            -- try to play the card (spend mana and trigger effects)
-            local cardPlayed = GameLogic:playCard(self.heldObject, self.gameBoard, isPlayerCard)
-            
-            if cardPlayed then
-                print("  Card successfully played with effects triggered")
-                -- Card stays where it was dropped and effects are triggered
+            if cardPlaced then
+                -- Always treat cards dropped by player as player cards
+                local isPlayerCard = true
+                
+                -- try to play the card (spend mana and trigger effects)
+                local cardPlayed = GameLogic:playCard(self.heldObject, self.gameBoard, isPlayerCard)
+                
+                if cardPlayed then
+                    -- Trigger card effects with location information
+                    CardEffects:triggerEffectWithLocation(self.heldObject.name, self.heldObject, self.gameBoard, locationIndex, slotIndex)
+                    
+                    -- Check for passive effects (like Athena) after successful card placement
+                    CardEffects:checkPassiveEffects(self.heldObject, self.gameBoard, locationIndex)
+                else
+                    -- if mana is not enough, remove from slot and return to hand
+                    self.gameBoard.locations[locationIndex].playerSlots[slotIndex] = nil
+                    table.insert(self.gameBoard.playerHand, self.heldObject)
+                    self.gameBoard:positionHandCards()
+                end
             else
-                -- if mana is not enough, return to original position
+                -- Slot is occupied, return to original position
                 if self.heldObject.originalPosition then
                     self.heldObject.position = self.heldObject.originalPosition
-                    print("  Not enough mana, card returned to original position")
                 end
             end
         end
@@ -157,23 +137,13 @@ function GrabberClass:release()
     
     -- Reset grabber state
     self:resetGrabState()
-    
-    -- Need to set grabPos to nil to allow for new grabs
     self.grabPos = nil
 end
 
 -- Check if card is dropped in a valid zone
--- This function uses the gameBoard to determine valid drop zones
 function GrabberClass:checkValidDropZone()
     if not self.heldObject or not self.gameBoard then
-        return false
+        return nil
     end
-    
-    -- Use the gameBoard's drop zone checking function
     return self.gameBoard:checkCardDropZones(self.heldObject)
-end
-
--- Helper function to check if a point is inside a rectangle
-function GrabberClass:pointInRect(px, py, rx, ry, rw, rh)
-    return px >= rx and px <= rx + rw and py >= ry and py <= ry + rh
 end

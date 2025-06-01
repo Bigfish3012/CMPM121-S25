@@ -10,21 +10,82 @@ CARD_STATE = {
     GRABBED = 2
 }
 
--- Card image cache to avoid repeated loading
 local cardImages = {}
--- Power and mana cost icon caches
 local powerIcons = {}
 local manaCostIcons = {}
 
-CARD_INFO = {
-    -- Format: {card name, mana cost, power value, description text}
-    ["Wooden Cow"] = {name = "Wooden Cow", manaCost = 1, power = 1, text = "Vanilla"},
-    ["Pegasus"] = {name = "Pegasus", manaCost = 3, power = 5, text = "Vanilla"},
-    ["Minotaur"] = {name = "Minotaur", manaCost = 5, power = 9, text = "Vanilla"},
-    ["Zeus"] = {name = "Zeus", manaCost = 4, power = 4, text = "When Revealed: Lower the power of each card in your opponent's hand by 1."},
-    ["Ares"] = {name = "Ares", manaCost = 3, power = 3, text = "When Revealed: Gain +2 power for each enemy card here."},
-    ["Cyclops"] = {name = "Cyclops", manaCost = 3, power = 5, text = "When Revealed: Discard your other cards here, gain +2 power for each discarded."},
-}
+-- Function to load card information from info.txt
+local function loadCardInfo()
+    local cardInfo = {}
+        local possiblePaths = {
+        "info.txt",
+        "project3/info.txt",
+        "./info.txt"
+    }
+    
+    local file = nil
+    local usedPath = nil
+    
+    for _, path in ipairs(possiblePaths) do
+        file = io.open(path, "r")
+        if file then
+            usedPath = path
+            break
+        end
+    end
+    
+    if not file then
+        print("Error: Could not open info.txt file! Tried paths:")
+        for _, path in ipairs(possiblePaths) do
+            print("  - " .. path)
+        end
+        return {}
+    end
+    
+    print("Successfully opened info.txt from:", usedPath)
+    
+    -- Skip the header line
+    local header = file:read("*line")
+    
+    -- Read each line and parse card data
+    for line in file:lines() do
+        if line and line ~= "" then
+            -- Split by tab characters
+            local parts = {}
+            for part in line:gmatch("[^\t]+") do
+                table.insert(parts, part)
+            end
+            
+            if #parts >= 4 then
+                local name = parts[1]
+                local manaCost = tonumber(parts[2]) or 0
+                local power = tonumber(parts[3]) or 0
+                local text = parts[4] or ""
+                
+                cardInfo[name] = {
+                    name = name,
+                    manaCost = manaCost,
+                    power = power,
+                    text = text
+                }
+            end
+        end
+    end
+    
+    file:close()
+    local cardCount = 0
+    for _ in pairs(cardInfo) do
+        cardCount = cardCount + 1
+    end
+    print("Loaded", cardCount, "cards from info.txt")
+    for name, info in pairs(cardInfo) do
+        print("Card:", name, "Power:", info.power, "Mana:", info.manaCost)
+    end
+    return cardInfo
+end
+
+-- Load card information from file
+CARD_INFO = loadCardInfo()
 
 -- Load card image
 function CardClass.loadCardImage(cardName)
@@ -33,11 +94,18 @@ function CardClass.loadCardImage(cardName)
         return cardImages[cardName]
     end
     
-    -- load the card image
+    -- load the card image with error handling
     local imagePath = "asset/sp/" .. cardName .. ".png"
-    local image = love.graphics.newImage(imagePath)
-    cardImages[cardName] = image
-    return image
+    local success, image = pcall(love.graphics.newImage, imagePath)
+    
+    if success then
+        cardImages[cardName] = image
+        return image
+    else
+        
+        cardImages[cardName] = nil
+        return nil
+    end
 end
 
 -- Load power icon
@@ -92,11 +160,6 @@ function CardClass:new(xPos, yPos, name, power, manaCost, text, faceUp)
     return card
 end
 
-function CardClass:update()
-    -- Card-specific update logic can be added here
-    -- Position update for grabbed cards is now handled by the grabber
-end
-
 function CardClass:draw()
     if self.faceUp then
         -- Draw the front of the card
@@ -129,10 +192,10 @@ function CardClass:draw()
                 love.graphics.setColor(1, 0.8, 0, 0.5) -- Semi-transparent highlight border
                 love.graphics.setLineWidth(3)
                 love.graphics.rectangle("line", self.position.x, self.position.y, 
-                                      self.image:getWidth(), self.image:getHeight(), 8, 8)
+                                        self.image:getWidth(), self.image:getHeight(), 8, 8)
             end
         else
-            -- If there's no image, draw a simple placeholder (for development only)
+            -- If there's no image, draw a simple placeholder
             love.graphics.setColor(0.8, 0.8, 0.8, 1)
             love.graphics.rectangle("fill", self.position.x, self.position.y, 100, 150, 8, 8)
             love.graphics.setColor(0, 0, 0, 1)
@@ -159,27 +222,18 @@ function CardClass:draw()
         end
     else
         -- Draw the back of the card
-        -- Make sure the card back image is loaded
-        if not self.cardBackImage then
-            -- Try to get the image from gameBoard
-            if gameBoard and gameBoard.cardBackImage then
-                self.cardBackImage = gameBoard.cardBackImage
-            else
-                -- Load directly as a fallback
-                self.cardBackImage = love.graphics.newImage("asset/img/card_back.png")
-            end
+        if not CardClass.cardBackImage then
+            CardClass.cardBackImage = love.graphics.newImage("asset/img/card_back.png")
         end
-        
-        -- Draw the card back at its original size (without scaling)
         love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.draw(self.cardBackImage, self.position.x, self.position.y)
+        love.graphics.draw(CardClass.cardBackImage, self.position.x, self.position.y)
         
         -- Only draw the highlight border when mouse is hovering or grabbing
         if self.state == CARD_STATE.MOUSE_OVER or self.state == CARD_STATE.GRABBED then
             love.graphics.setColor(1, 0.8, 0, 0.5) -- Semi-transparent highlight border
             love.graphics.setLineWidth(3)
             love.graphics.rectangle("line", self.position.x, self.position.y, 
-                                  self.cardBackImage:getWidth(), self.cardBackImage:getHeight(), 8, 8)
+                                  CardClass.cardBackImage:getWidth(), CardClass.cardBackImage:getHeight(), 8, 8)
         end
     end
     
@@ -189,18 +243,7 @@ function CardClass:draw()
     end
 end
 
-function CardClass:getPower()
-    return self.power
-end
-function CardClass:getManaCost()
-    return self.manaCost
-end
-function CardClass:getText()
-    return self.text
-end
-function CardClass:getName()
-    return self.name
-end
+
 
 function CardClass:checkForMouseOver(grabber)
     -- Skip check if card is already grabbed
@@ -218,10 +261,7 @@ function CardClass:checkForMouseOver(grabber)
     self.state = isMouseOver and CARD_STATE.MOUSE_OVER or CARD_STATE.IDLE
 end
 
-function CardClass:description()
-    -- when the card is face up, and the mouse is over the card, show the description:
-    -- Draw the a description box on the right side of the mouse, but also ensure that it is within the screen bounds
-    
+function CardClass:description()    
     -- Only show description for face up cards that are being hovered over
     if not self.faceUp or self.state ~= CARD_STATE.MOUSE_OVER then
         -- Reset hover timer if not hovering
@@ -253,12 +293,12 @@ function CardClass:description()
     
     -- Position the box to the right of the mouse, but keep it on screen
     local screenWidth, screenHeight = love.graphics.getDimensions()
-    local boxX = mouseX + 20 -- 20 pixels to the right of mouse
-    local boxY = mouseY - boxHeight / 2 -- Centered vertically with mouse
+    local boxX = mouseX + 20
+    local boxY = mouseY - boxHeight / 2
     
     -- Keep the box within screen bounds
     if boxX + boxWidth > screenWidth then
-        boxX = mouseX - boxWidth - 20 -- Place on left side of mouse if too close to right edge
+        boxX = mouseX - boxWidth - 20
     end
     
     if boxY < 0 then
@@ -301,9 +341,7 @@ function CardClass:description()
     love.graphics.setFont(love.graphics.getFont())
 end
 
-function CardClass:mouseOver(x, y)
-    -- Check if mouse position (x, y) is over this card
-    
+function CardClass:mouseOver(x, y)    
     -- Skip check if card is already grabbed
     if self.state == CARD_STATE.GRABBED then
         return false
@@ -315,9 +353,9 @@ function CardClass:mouseOver(x, y)
     if self.faceUp and self.image then
         cardWidth = self.image:getWidth()
         cardHeight = self.image:getHeight()
-    elseif not self.faceUp and self.cardBackImage then
-        cardWidth = self.cardBackImage:getWidth()
-        cardHeight = self.cardBackImage:getHeight()
+    elseif not self.faceUp and CardClass.cardBackImage then
+        cardWidth = CardClass.cardBackImage:getWidth()
+        cardHeight = CardClass.cardBackImage:getHeight()
     else
         -- Default dimensions if no image is available
         cardWidth = 100
@@ -326,9 +364,9 @@ function CardClass:mouseOver(x, y)
     
     -- Check if mouse is over this card
     local isOver = x > self.position.x and 
-           x < self.position.x + cardWidth and 
-           y > self.position.y and
-           y < self.position.y + cardHeight
+            x < self.position.x + cardWidth and 
+            y > self.position.y and
+            y < self.position.y + cardHeight
     
     return isOver
 end

@@ -3,12 +3,13 @@ io.stdout:setvbuf("no")
 
 require "gameBoard"
 require "card"
-require "game"
 require "vector"
 require "title"
 require "credit"
 require "helper"
 require "grabber"
+require "player"
+require "ai"
 
 local GameLogic = require "game"
 
@@ -56,16 +57,6 @@ function love.update()
         -- Update game board and grabber
         grabber:update()
         
-        -- Check if mouse is over any cards
-        if grabber.currentMousePos then
-            for _, card in ipairs(gameBoard.cards or {}) do
-                if card then
-                    card:checkForMouseOver(grabber)
-                    card:update()
-                end
-            end
-        end
-        
         -- Check win conditions
         local winner = GameLogic:checkWinCondition(gameBoard)
         if winner then
@@ -86,8 +77,6 @@ function love.draw()
     else
         gameBoard:draw()
     end
-    
-    -- Always draw game over box if it's visible (it will overlay on top)
     gameOverBox:draw()
 end
 
@@ -97,9 +86,8 @@ function love.mousepressed(x, y, button)
         local result = gameOverBox:mousepressed(x, y, button)
         if result == "title" then
             currentScreen = "title"
-            return  -- Stop processing other clicks when game over box is visible
+            return
         elseif result == "restart" then
-            -- Restart the game while staying on the game screen
             initializeGame()
             currentScreen = "game"
             return
@@ -119,6 +107,13 @@ function love.mousepressed(x, y, button)
         if result == "title" then
             currentScreen = "title"
         end
+    elseif currentScreen == "game" then
+        -- Check if end turn button was clicked
+        if gameBoard and gameBoard:isPointInEndTurnButton(x, y) then
+            if GameLogic.gamePhase == "staging" and not GameLogic.player.submitted then
+                GameLogic:submitTurn()
+            end
+        end
     end
 end
 
@@ -131,24 +126,10 @@ function love.mousemoved(x, y, dx, dy)
         titleScreen:mousemoved(x, y)
     elseif currentScreen == "credits" then
         creditScreen:mousemoved(x, y)
-    else
-        -- Handle game mouse movement here
     end
 end
 
 -- Function to show game over message
 function showGameOver(result)
     gameOverBox:show(result)  -- "win" or "lose"
-end
-
--- add for debug
-function love.keypressed(key)
-    if currentScreen == "game" then
-        if key == "space" then
-            -- end turn by space
-            local GameLogic = require "game"
-            GameLogic:endTurn()
-            print("Turn ended by player. Current turn: " .. GameLogic.currentPlayer)
-        end
-    end
 end

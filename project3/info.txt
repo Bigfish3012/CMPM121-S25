@@ -4,25 +4,11 @@ Pegasus	3	5	Vanilla
 Minotaur	5	9	Vanilla
 Zeus	4	4	When Revealed: Lower the power of each card in your opponent's hand by 1.
 Ares	3	3	When Revealed: Gain +2 power for each enemy card here.
-Medusa	3	3	When ANY other card is played here, lower that card's power by 1.
 Cyclops	3	5	When Revealed: Discard your other cards here, gain +2 power for each discarded.
-Poseidon	4	4	When Revealed: Move away an enemy card here with the lowest power.
-Hera	2	2	When Revealed: Give cards in your hand +1 power.
 Demeter	0	0	When Revealed: Both players draw a card.
-Hades	6	6	When Revealed: Gain +2 power for each card in your discard pile.
-Hercules	3	4	When Revealed: Doubles its power if its the strongest card here.
-Dionysus	2	4	When Revealed: Gain +2 power for each of your other cards here.
-Hermes	2	4	When Revealed: Moves to another location.
-Hydra	2	3	Add two copies to your hand when this card is discarded.
-Ship of Theseus	3	3	When Revealed: Add a copy with +1 power to your hand.
-Sword of Damocles	4	6	End of Turn: Loses 1 power if not winning this location.
-Midas	3	3	When Revealed: Set ALL cards here to 3 power.
-Aphrodite	2	2	When Revealed: Lower the power of each enemy card here by 1.
-Athena	3	4	Gain +1 power when you play another card here.
 Apollo	0	0	When Revealed: Gain +1 mana next turn.
-Hephaestus	2	3	When Revealed: Lower the cost of 2 cards in your hand by 1.
-Persephone	2	2	When Revealed: Discard the lowest power card in your hand.
+Poseidon	4	4	When Revealed: Move away an enemy card here with the lowest power.
+Hydra	2	3	Add two copies to your hand when this card is discarded.
 Prometheus	3	3	When Revealed: Draw a card from your opponent's deck.
-Icarus	3	5	End of Turn: Gains +1 power, but is discarded when its power is greater than 7.
-Iris	3	3	End of Turn: Give your cards at each other location +1 power if they have unique powers.
-Helios	3	4	End of Turn: Discard this.
+Dionysus	2	4	When Revealed: Gain +2 power for each of your other cards here.
+Athena	3	4	Gain +1 power when you play another card here.
