@@ -72,6 +72,7 @@ function GameBoard:draw()
     self:drawManaPool()
     self:drawHands()
     self.uiManager:drawEndTurnButton()
+    self.uiManager:drawSettingsButton()
 end
 
 -- Draw 3 game locations and card slots
@@ -346,4 +347,9 @@ end
 -- Check if point is in end turn button
 function GameBoard:isPointInEndTurnButton(x, y)
     return self.uiManager:isPointInEndTurnButton(x, y)
+end
+
+-- Check if point is in settings button
+function GameBoard:isPointInSettingsButton(x, y)
+    return self.uiManager:isPointInSettingsButton(x, y)
 end

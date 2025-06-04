@@ -11,6 +11,7 @@ function UIManager:new(screenWidth, screenHeight)
     ui.screenWidth = screenWidth
     ui.screenHeight = screenHeight
     ui.endTurnButton = nil
+    ui.settingsButton = nil
     
     return ui
 end
@@ -69,6 +70,46 @@ function UIManager:drawEndTurnButton()
     love.graphics.print(buttonText, textX, textY)
 end
 
+-- Draw settings button
+function UIManager:drawSettingsButton()
+    -- Button dimensions and position (near the submit button)
+    local buttonWidth = 100
+    local buttonHeight = 40
+    local buttonX = (self.screenWidth - buttonWidth) / 2 + 200
+    local buttonY = self.screenHeight - buttonHeight - 20
+    
+    -- Store button position for click detection
+    self.settingsButton = {
+        x = buttonX,
+        y = buttonY,
+        width = buttonWidth,
+        height = buttonHeight
+    }
+    
+    -- Button styling
+    local bgColor = {0.5, 0.5, 0.5, 0.8}
+    local borderColor = {0.3, 0.3, 0.3, 1}
+    
+    -- Draw button background
+    love.graphics.setColor(bgColor)
+    love.graphics.rectangle("fill", buttonX, buttonY, buttonWidth, buttonHeight, 5, 5)
+    
+    -- Draw button border
+    love.graphics.setColor(borderColor)
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle("line", buttonX, buttonY, buttonWidth, buttonHeight, 5, 5)
+    
+    -- Draw button text
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.setFont(love.graphics.newFont(14))
+    local buttonText = "Settings"
+    local textWidth = love.graphics.getFont():getWidth(buttonText)
+    local textHeight = love.graphics.getFont():getHeight()
+    local textX = buttonX + (buttonWidth - textWidth) / 2
+    local textY = buttonY + (buttonHeight - textHeight) / 2
+    love.graphics.print(buttonText, textX, textY)
+end
+
 -- Check if point is inside end turn button
 function UIManager:isPointInEndTurnButton(x, y)
     if not self.endTurnButton then
@@ -79,6 +120,18 @@ function UIManager:isPointInEndTurnButton(x, y)
            x <= self.endTurnButton.x + self.endTurnButton.width and
            y >= self.endTurnButton.y and 
            y <= self.endTurnButton.y + self.endTurnButton.height
+end
+
+-- Check if point is inside settings button
+function UIManager:isPointInSettingsButton(x, y)
+    if not self.settingsButton then
+        return false
+    end
+    
+    return x >= self.settingsButton.x and 
+           x <= self.settingsButton.x + self.settingsButton.width and
+           y >= self.settingsButton.y and 
+           y <= self.settingsButton.y + self.settingsButton.height
 end
 
 return UIManager 

@@ -10,6 +10,7 @@ require "helper"
 require "grabber"
 require "player"
 require "ai"
+require "setting"
 
 local GameLogic = require "game"
 
@@ -23,6 +24,7 @@ local screenHeight = 800
 local titleScreen = nil
 local creditScreen = nil
 local gameOverBox = nil
+local settingBox = nil
 local gameBoard = nil
 
 function love.load()
@@ -56,6 +58,10 @@ function initializeGame()
     
     if not gameOverBox then
         gameOverBox = GameOverBox:new(screenWidth, screenHeight)
+    end
+    
+    if not settingBox then
+        settingBox = SettingBox:new(screenWidth, screenHeight)
     end
     
     -- Always reinitialize the game board on restart
@@ -92,13 +98,36 @@ function love.draw()
         gameBoard:draw()
     end
     gameOverBox:draw()
+    settingBox:draw()
 end
 
 function love.mousepressed(x, y, button)
-    -- First check if game over box is interacted with
+    -- First check if setting box is interacted with
+    if settingBox.visible then
+        local result = settingBox:mousepressed(x, y, button)
+        if result == "restart" then
+            initializeGame()
+            currentScreen = "game"
+            switchMusic("game")
+            return
+        elseif result == "title" then
+            initializeGame()
+            currentScreen = "title"
+            switchMusic("title")
+            return
+        elseif result == "quit" then
+            love.event.quit()
+            return
+        elseif result == "close" then
+            return
+        end
+    end
+    
+    -- Then check if game over box is interacted with
     if gameOverBox.visible then
         local result = gameOverBox:mousepressed(x, y, button)
         if result == "title" then
+            initializeGame()
             currentScreen = "title"
             switchMusic("title")
             return
@@ -110,7 +139,7 @@ function love.mousepressed(x, y, button)
         end
     end
     
-    -- Process other screens if game over box is not visible or was not interacted with
+    -- Process other screens if no overlay is visible or was not interacted with
     if currentScreen == "title" then
         local result = titleScreen:mousepressed(x, y, button)
         if result == "game" then
@@ -129,6 +158,12 @@ function love.mousepressed(x, y, button)
             switchMusic("title")
         end
     elseif currentScreen == "game" then
+        -- Check if settings button was clicked
+        if gameBoard and gameBoard:isPointInSettingsButton(x, y) then
+            settingBox:show()
+            return
+        end
+        
         -- Check if end turn button was clicked
         if gameBoard and gameBoard:isPointInEndTurnButton(x, y) then
             if GameLogic.gamePhase == "staging" and not GameLogic.player.submitted then
@@ -139,7 +174,10 @@ function love.mousepressed(x, y, button)
 end
 
 function love.mousemoved(x, y, dx, dy)
-    -- Update game over box first
+    -- Update setting box
+    settingBox:mousemoved(x, y)
+    
+    -- Update game over box
     gameOverBox:mousemoved(x, y)
     
     -- Update other screens
