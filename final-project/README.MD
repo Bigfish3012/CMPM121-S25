@@ -46,13 +46,22 @@
 
 ### Fonts
 - **Title Screen**: (https://www.dafont.com/angels.font)
+- **Credit Screen**: (https://www.dafont.com/relationship-of-melodrame.font?back=theme)
 
 ### Images
 - [Demon Sprite Pack](https://deepdivegamestudio.itch.io/demon-sprite-pack)
 - [Holy Asset Pack](https://deepdivegamestudio.itch.io/holyassetpack)
 - [Monster Asset Pack](https://deepdivegamestudio.itch.io/monsterassetpack)
 
+### Music
+- Background Music 1: https://pixabay.com/music/video-games-pixel-fight-8-bit-arcade-music-background-music-for-video-208775/
+
+- Background Music 2: https://pixabay.com/music/video-games-byte-blast-8-bit-arcade-music-background-music-for-video-208780/
+
 ## References
 - [Multiple Screen Management](https://love2d.org/forums/viewtopic.php?t=93629)
 - [Font Implementation](https://love2d.org/wiki/Tutorial:Fonts_and_Text)
 - [File Reading](https://stackoverflow.com/questions/11201262/how-to-read-data-from-a-file-in-lua)
+
+- add music: https://love2d.org/wiki/Tutorial:Audio
+- quit the game: https://love2d.org/forums/viewtopic.php?t=78482

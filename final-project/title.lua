@@ -39,6 +39,17 @@ function Title:new(width, height)
             hoverColor = {0.9, 0.9, 1, 0.9},
             textColor = {0, 0, 0},
             hover = false
+        },
+        quit = {
+            text = "Quit",
+            x = width / 2 - 100,
+            y = height / 2 + 250,
+            width = 200,
+            height = 50,
+            color = {1, 0.8, 0.8, 0.7},
+            hoverColor = {1, 0.9, 0.9, 0.9},
+            textColor = {0, 0, 0},
+            hover = false
         }
     }
     
@@ -89,6 +100,9 @@ function Title:mousepressed(x, y, button)
         elseif self:isMouseOver(self.buttons.credits.x, self.buttons.credits.y, 
                                self.buttons.credits.width, self.buttons.credits.height) then
             return "credits"  -- Signal to show credits
+        elseif self:isMouseOver(self.buttons.quit.x, self.buttons.quit.y, 
+                               self.buttons.quit.width, self.buttons.quit.height) then
+            return "quit"  -- Signal to quit the game
         end
     end
     return nil  -- No state change

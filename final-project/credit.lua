@@ -12,16 +12,16 @@ function Credit:new(width, height)
     credit.screenHeight = height or 800
     
     -- Load custom font
-    credit.titleFont = love.graphics.newFont("asset/fonts/Angels.ttf", 100)
-    credit.contentFont = love.graphics.newFont("asset/fonts/Angels.ttf", 32)
-    credit.buttonFont = love.graphics.newFont("asset/fonts/Angels.ttf", 36)
+    credit.titleFont = love.graphics.newFont("asset/fonts/credit-font.ttf", 100)
+    credit.contentFont = love.graphics.newFont("asset/fonts/credit-font.ttf", 32)
+    credit.buttonFont = love.graphics.newFont("asset/fonts/credit-font.ttf", 36)
     
     -- Credits information
-    credit.title = "Credits"
+    credit.title = "CREDITS"
     credit.lines = {
         "Author: Chengkun Li",
         "Made for CMPM121 UCSC",
-        "start time: May 10, 2025",
+        "Start time: May 10, 2025",
         "Thanks for playing!"
     }
     
