@@ -13,13 +13,13 @@ function GameOverBox:new(width, height)
     gameOverBox.screenHeight = height or 800
     
     -- Game over box properties
-    gameOverBox.width = 400
-    gameOverBox.height = 250
-    gameOverBox.x = (width - 400) / 2
-    gameOverBox.y = (height - 250) / 2
+    gameOverBox.width = 500
+    gameOverBox.height = 300
+    gameOverBox.x = (width - 500) / 2
+    gameOverBox.y = (height - 300) / 2
     
     -- Button properties
-    gameOverBox.buttonWidth = 150
+    gameOverBox.buttonWidth = 120
     gameOverBox.buttonHeight = 50
     
     -- State
@@ -29,6 +29,7 @@ function GameOverBox:new(width, height)
     -- Button hover states
     gameOverBox.restartHover = false
     gameOverBox.titleHover = false
+    gameOverBox.quitHover = false
     
     return gameOverBox
 end
@@ -60,7 +61,7 @@ function GameOverBox:draw()
     
     -- Draw title
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.setFont(love.graphics.newFont(24))
+    love.graphics.setFont(love.graphics.newFont("asset/fonts/game.TTF", 24))
     
     local titleText = "Game Over"
     if self.result == "win" then
@@ -75,35 +76,50 @@ function GameOverBox:draw()
     love.graphics.print(titleText, self.x + (self.width - titleWidth) / 2, self.y + 30)
     
     -- Draw buttons
-    local buttonY = self.y + 150
+    local buttonY = self.y + 180
+    local buttonSpacing = 20
+    local totalButtonsWidth = 3 * self.buttonWidth + 2 * buttonSpacing
+    local startX = self.x + (self.width - totalButtonsWidth) / 2
     
     -- Restart button
     if self.restartHover then
-        love.graphics.setColor(0.4, 0.4, 0.9, 1)
+        love.graphics.setColor(0.306, 0.941, 0.051, 1)
     else
-        love.graphics.setColor(0.2, 0.2, 0.7, 1)
+        love.graphics.setColor(0.259, 0.812, 0.035, 1)
     end
-    love.graphics.rectangle("fill", self.x + 40, buttonY, self.buttonWidth, self.buttonHeight, 5, 5)
+    love.graphics.rectangle("fill", startX, buttonY, self.buttonWidth, self.buttonHeight, 5, 5)
     
     -- Title button
     if self.titleHover then
-        love.graphics.setColor(0.9, 0.4, 0.4, 1)
+        love.graphics.setColor(1.0, 0.810, 0.547, 1)
     else
-        love.graphics.setColor(0.7, 0.2, 0.2, 1)
+        love.graphics.setColor(0.976, 0.710, 0.447, 1)
     end
-    love.graphics.rectangle("fill", self.x + self.width - 40 - self.buttonWidth, buttonY, self.buttonWidth, self.buttonHeight, 5, 5)
+    love.graphics.rectangle("fill", startX + self.buttonWidth + buttonSpacing, buttonY, self.buttonWidth, self.buttonHeight, 5, 5)
+    
+    -- Quit button
+    if self.quitHover then
+        love.graphics.setColor(1.0, 0.508, 0.508, 1)
+    else
+        love.graphics.setColor(1.0, 0.408, 0.408, 1)
+    end
+    love.graphics.rectangle("fill", startX + 2 * (self.buttonWidth + buttonSpacing), buttonY, self.buttonWidth, self.buttonHeight, 5, 5)
     
     -- Button text
-    love.graphics.setFont(love.graphics.newFont(16))
+    love.graphics.setFont(love.graphics.newFont("asset/fonts/game.TTF", 16))
     love.graphics.setColor(1, 1, 1, 1)
     
     local restartText = "Restart"
     local restartWidth = love.graphics.getFont():getWidth(restartText)
-    love.graphics.print(restartText, self.x + 40 + (self.buttonWidth - restartWidth) / 2, buttonY + 15)
+    love.graphics.print(restartText, startX + (self.buttonWidth - restartWidth) / 2, buttonY + 15)
     
-    local titleText = "Title Screen"
+    local titleText = "Title"
     local titleWidth = love.graphics.getFont():getWidth(titleText)
-    love.graphics.print(titleText, self.x + self.width - 40 - self.buttonWidth + (self.buttonWidth - titleWidth) / 2, buttonY + 15)
+    love.graphics.print(titleText, startX + self.buttonWidth + buttonSpacing + (self.buttonWidth - titleWidth) / 2, buttonY + 15)
+    
+    local quitText = "Quit"
+    local quitWidth = love.graphics.getFont():getWidth(quitText)
+    love.graphics.print(quitText, startX + 2 * (self.buttonWidth + buttonSpacing) + (self.buttonWidth - quitWidth) / 2, buttonY + 15)
     
     -- Reset font
     love.graphics.setFont(love.graphics.getFont())
@@ -115,19 +131,29 @@ function GameOverBox:mousemoved(x, y)
     end
     
     -- Check button hover states
-    local buttonY = self.y + 150
+    local buttonY = self.y + 180
+    local buttonSpacing = 20
+    local totalButtonsWidth = 3 * self.buttonWidth + 2 * buttonSpacing
+    local startX = self.x + (self.width - totalButtonsWidth) / 2
     
     -- Restart button
     self.restartHover = 
-        x > self.x + 40 and 
-        x < self.x + 40 + self.buttonWidth and
+        x > startX and 
+        x < startX + self.buttonWidth and
         y > buttonY and
         y < buttonY + self.buttonHeight
     
     -- Title button
     self.titleHover = 
-        x > self.x + self.width - 40 - self.buttonWidth and
-        x < self.x + self.width - 40 and
+        x > startX + self.buttonWidth + buttonSpacing and
+        x < startX + 2 * self.buttonWidth + buttonSpacing and
+        y > buttonY and
+        y < buttonY + self.buttonHeight
+    
+    -- Quit button
+    self.quitHover = 
+        x > startX + 2 * (self.buttonWidth + buttonSpacing) and
+        x < startX + 3 * self.buttonWidth + 2 * buttonSpacing and
         y > buttonY and
         y < buttonY + self.buttonHeight
 end
@@ -147,6 +173,12 @@ function GameOverBox:mousepressed(x, y, button)
     if self.titleHover then
         self:hide()
         return "title"
+    end
+    
+    -- Check if quit button clicked
+    if self.quitHover then
+        self:hide()
+        return "quit"
     end
     
     return nil

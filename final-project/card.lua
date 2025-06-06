@@ -40,10 +40,7 @@ local function loadCardInfo()
             print("  - " .. path)
         end
         return {}
-    end
-    
-    print("Successfully opened info.txt from:", usedPath)
-    
+    end    
     -- Skip the header line
     local header = file:read("*line")
     
@@ -73,14 +70,6 @@ local function loadCardInfo()
     end
     
     file:close()
-    local cardCount = 0
-    for _ in pairs(cardInfo) do
-        cardCount = cardCount + 1
-    end
-    print("Loaded", cardCount, "cards from info.txt")
-    for name, info in pairs(cardInfo) do
-        print("Card:", name, "Power:", info.power, "Mana:", info.manaCost)
-    end
     return cardInfo
 end
 
@@ -199,7 +188,7 @@ function CardClass:draw()
             love.graphics.setColor(0.8, 0.8, 0.8, 1)
             love.graphics.rectangle("fill", self.position.x, self.position.y, 100, 150, 8, 8)
             love.graphics.setColor(0, 0, 0, 1)
-            love.graphics.setFont(love.graphics.newFont(12))
+            love.graphics.setFont(love.graphics.newFont("asset/fonts/game.TTF", 12))
             love.graphics.print(self.name, self.position.x + 10, self.position.y + 60)
             
             -- Draw mana cost and power icons even for placeholder cards
@@ -319,17 +308,17 @@ function CardClass:description()
     love.graphics.setColor(1, 1, 1, 1)
     
     -- Card name (title)
-    love.graphics.setFont(love.graphics.newFont(14))
+    love.graphics.setFont(love.graphics.newFont("asset/fonts/des.ttf", 14))
     love.graphics.print(self.name, boxX + padding, boxY + padding)
 
     -- Mana cost and power information
-    love.graphics.setFont(love.graphics.newFont(12))
+    love.graphics.setFont(love.graphics.newFont("asset/fonts/des.ttf", 12))
     local statsY = boxY + padding + 20
     local statsText = "Mana: " .. (self.manaCost or "?") .. "  Power: " .. (self.power or "?")
     love.graphics.print(statsText, boxX + padding, statsY)
     
     -- Card text/description
-    love.graphics.setFont(love.graphics.newFont(10))
+    love.graphics.setFont(love.graphics.newFont("asset/fonts/des.ttf", 10))
     local textY = boxY + padding + 45
     
     -- Wrap text to fit in the box

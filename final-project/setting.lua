@@ -59,7 +59,7 @@ function SettingBox:draw()
     
     -- Draw title
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.setFont(love.graphics.newFont(24))
+    love.graphics.setFont(love.graphics.newFont("asset/fonts/game.TTF", 24))
     
     local titleText = "Settings"
     local titleWidth = love.graphics.getFont():getWidth(titleText)
@@ -72,9 +72,9 @@ function SettingBox:draw()
     local restartButtonY = self.y + 70
     
     if self.restartHover then
-        love.graphics.setColor(0.5, 0.8, 0.5, 1)
+        love.graphics.setColor(0.306, 0.941, 0.051, 1)
     else
-        love.graphics.setColor(0.3, 0.6, 0.3, 1)
+        love.graphics.setColor(0.259, 0.812, 0.035, 1)
     end
     love.graphics.rectangle("fill", buttonX, restartButtonY, self.buttonWidth, self.buttonHeight, 5, 5)
     
@@ -82,9 +82,9 @@ function SettingBox:draw()
     local titleButtonY = self.y + 140
     
     if self.titleScreenHover then
-        love.graphics.setColor(0.9, 0.5, 0.5, 1)
+        love.graphics.setColor(1.0, 0.810, 0.547, 1)
     else
-        love.graphics.setColor(0.7, 0.3, 0.3, 1)
+        love.graphics.setColor(0.976, 0.710, 0.447, 1)
     end
     love.graphics.rectangle("fill", buttonX, titleButtonY, self.buttonWidth, self.buttonHeight, 5, 5)
     
@@ -92,14 +92,14 @@ function SettingBox:draw()
     local quitButtonY = self.y + 210
     
     if self.quitGameHover then
-        love.graphics.setColor(1, 0.4, 0.4, 1)
+        love.graphics.setColor(1.0, 0.508, 0.508, 1)
     else
-        love.graphics.setColor(0.8, 0.2, 0.2, 1)
+        love.graphics.setColor(1.0, 0.408, 0.408, 1)
     end
     love.graphics.rectangle("fill", buttonX, quitButtonY, self.buttonWidth, self.buttonHeight, 5, 5)
     
     -- Button text
-    love.graphics.setFont(love.graphics.newFont(18))
+    love.graphics.setFont(love.graphics.newFont("asset/fonts/game.TTF", 18))
     love.graphics.setColor(1, 1, 1, 1)
     
     -- Restart button text
@@ -111,7 +111,7 @@ function SettingBox:draw()
     love.graphics.print(restartButtonText, restartTextX, restartTextY)
     
     -- Title screen button text
-    local titleButtonText = "Back to Title Screen"
+    local titleButtonText = "Title Screen"
     local titleTextWidth = love.graphics.getFont():getWidth(titleButtonText)
     local titleTextHeight = love.graphics.getFont():getHeight()
     local titleTextX = buttonX + (self.buttonWidth - titleTextWidth) / 2

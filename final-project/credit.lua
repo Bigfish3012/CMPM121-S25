@@ -32,8 +32,8 @@ function Credit:new(width, height)
         y = height - 100,
         width = 150,
         height = 50,
-        color = {0.8, 0.8, 1, 0.7},
-        hoverColor = {0.9, 0.9, 1, 0.9},
+        color = {0.976, 0.710, 0.447, 0.7},
+        hoverColor = {1.0, 0.810, 0.547, 0.9},
         textColor = {0, 0, 0},
         hover = false
     }

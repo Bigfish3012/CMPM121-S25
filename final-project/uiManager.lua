@@ -62,7 +62,7 @@ function UIManager:drawEndTurnButton()
     
     -- Draw button text
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.setFont(love.graphics.newFont(16))
+    love.graphics.setFont(love.graphics.newFont("asset/fonts/game.TTF", 16))
     local textWidth = love.graphics.getFont():getWidth(buttonText)
     local textHeight = love.graphics.getFont():getHeight()
     local textX = buttonX + (buttonWidth - textWidth) / 2
@@ -101,7 +101,7 @@ function UIManager:drawSettingsButton()
     
     -- Draw button text
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.setFont(love.graphics.newFont(14))
+    love.graphics.setFont(love.graphics.newFont("asset/fonts/game.TTF", 14))
     local buttonText = "Settings"
     local textWidth = love.graphics.getFont():getWidth(buttonText)
     local textHeight = love.graphics.getFont():getHeight()

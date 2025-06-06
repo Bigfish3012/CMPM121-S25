@@ -14,10 +14,6 @@ require "setting"
 
 local GameLogic = require "game"
 
--- Background music variable
-local bgMusic = nil
-local bgMusic2 = nil
-
 local currentScreen = "title"
 local screenWidth = 1400
 local screenHeight = 800
@@ -26,6 +22,13 @@ local creditScreen = nil
 local gameOverBox = nil
 local settingBox = nil
 local gameBoard = nil
+
+local bgMusic = nil
+local bgMusic2 = nil
+local winSound = nil
+local loseSound = nil
+
+local gameEnded = false
 
 function love.load()
     -- Load background music
@@ -37,6 +40,12 @@ function love.load()
     bgMusic2 = love.audio.newSource("asset/music/bg-music2.mp3", "stream")
     bgMusic2:setLooping(true)
     bgMusic2:setVolume(0.3)
+
+    winSound = love.audio.newSource("asset/music/win.mp3", "static")
+    winSound:setVolume(0.3)
+
+    loseSound = love.audio.newSource("asset/music/lose.mp3", "static")
+    loseSound:setVolume(0.3)
 
     initializeGame()
 end
@@ -68,6 +77,8 @@ function initializeGame()
     gameBoard = GameBoard:new(screenWidth, screenHeight)
     grabber = GrabberClass:new(gameBoard)
     GameLogic.init(gameBoard)
+    
+    gameEnded = false
 
 end
 
@@ -77,13 +88,20 @@ function love.update()
         -- Update game board and grabber
         grabber:update()
         
-        -- Check win conditions
-        local winner = GameLogic:checkWinCondition(gameBoard)
-        if winner then
-            if winner == "player" then
-                showGameOver("win")
-            else
-                showGameOver("lose")
+        -- Check win conditions (only if game hasn't ended yet)
+        if not gameEnded then
+            local winner = GameLogic:checkWinCondition(gameBoard)
+            if winner then
+                gameEnded = true  -- Set flag to prevent repeated sound playing
+                if winner == "player" then
+                    bgMusic2:stop()
+                    winSound:play()
+                    showGameOver("win")
+                else
+                    bgMusic2:stop()
+                    loseSound:play()
+                    showGameOver("lose")
+                end
             end
         end
     end
@@ -135,6 +153,9 @@ function love.mousepressed(x, y, button)
             initializeGame()
             currentScreen = "game"
             switchMusic("game")
+            return
+        elseif result == "quit" then
+            love.event.quit()
             return
         end
     end

@@ -93,7 +93,7 @@ function GameBoard:drawGameLocations()
         
         -- Draw location label
         love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.setFont(love.graphics.newFont(16))
+        love.graphics.setFont(love.graphics.newFont("asset/fonts/game.TTF", 16))
         local labelText = "location " .. i
         local textWidth = love.graphics.getFont():getWidth(labelText)
         love.graphics.print(labelText, locationX + (dims.locationWidth - textWidth) / 2, locationY + 10)
@@ -278,15 +278,15 @@ function GameBoard:drawScores(playerManaX, playerManaY, opponentManaX, opponentM
     
     -- Score text
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.setFont(love.graphics.newFont(16))
+    love.graphics.setFont(love.graphics.newFont("asset/fonts/game.TTF", 16))
     
     -- Player score
-    local playerScoreText = "Score: " .. playerScore .. "/" .. targetScore
+    local playerScoreText = "SCORE: " .. playerScore .. "/" .. targetScore
     local playerScoreY = playerManaY + manaHeight * 2 + 20
     love.graphics.print(playerScoreText, playerManaX, playerScoreY)
     
     -- Opponent score
-    local opponentScoreText = "Score: " .. opponentScore .. "/" .. targetScore
+    local opponentScoreText = "SCORE: " .. opponentScore .. "/" .. targetScore
     local opponentScoreY = opponentManaY + manaHeight * 2 + 20
     love.graphics.print(opponentScoreText, opponentManaX, opponentScoreY)
     
