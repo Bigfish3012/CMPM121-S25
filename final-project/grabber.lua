@@ -77,8 +77,33 @@ function GrabberClass:grab()
     
     -- Loop through all cards to find one under the mouse
     for _, card in ipairs(self.gameBoard.cards) do
+        -- Skip check if card is already grabbed
+        if card.state == CARD_STATE.GRABBED then
+            goto continue
+        end
+        
+        -- Get card dimensions based on whether it's face up or face down
+        local cardWidth, cardHeight
+        
+        if card.faceUp and card.image then
+            cardWidth = card.image:getWidth()
+            cardHeight = card.image:getHeight()
+        elseif not card.faceUp and CardClass.cardBackImage then
+            cardWidth = CardClass.cardBackImage:getWidth()
+            cardHeight = CardClass.cardBackImage:getHeight()
+        else
+            -- Default dimensions if no image is available
+            cardWidth = 100
+            cardHeight = 120
+        end
+        
         -- Check if mouse is over this card
-        if card:mouseOver(mx, my) then
+        local isMouseOver = mx > card.position.x and 
+                           mx < card.position.x + cardWidth and 
+                           my > card.position.y and
+                           my < card.position.y + cardHeight
+        
+        if isMouseOver then
             -- Card must be in IDLE or MOUSE_OVER state and draggable
             if (card.state == CARD_STATE.IDLE or card.state == CARD_STATE.MOUSE_OVER) and card.canDrag then
                 self.heldObject = card
@@ -88,6 +113,8 @@ function GrabberClass:grab()
                 break
             end
         end
+        
+        ::continue::
     end
 end
 

@@ -1,5 +1,7 @@
 -- credit file: for the credits screen
 
+local Button = require "button"
+
 Credit = {}
 
 function Credit:new(width, height)
@@ -25,18 +27,14 @@ function Credit:new(width, height)
         "Thanks for playing!"
     }
     
-    -- Back button
-    credit.backButton = {
-        text = "Back",
-        x = 100,
-        y = height - 100,
-        width = 150,
-        height = 50,
+    -- Create back button using Button module
+    credit.backButton = Button:new(100, height - 100, 150, 50, "Back", {
         color = {0.976, 0.710, 0.447, 0.7},
         hoverColor = {1.0, 0.810, 0.547, 0.9},
         textColor = {0, 0, 0},
-        hover = false
-    }
+        font = credit.buttonFont,
+        cornerRadius = 10
+    })
     
     return credit
 end
@@ -57,24 +55,13 @@ function Credit:draw()
         love.graphics.printf(line, 0, 300 + (i-1) * 50, self.screenWidth, "center")
     end
     
-    -- Draw back button
-    if self.backButton.hover then
-        love.graphics.setColor(self.backButton.hoverColor)
-    else
-        love.graphics.setColor(self.backButton.color)
-    end
-    love.graphics.rectangle("fill", self.backButton.x, self.backButton.y, 
-                           self.backButton.width, self.backButton.height, 10, 10)
-    
-    love.graphics.setColor(self.backButton.textColor)
-    love.graphics.setFont(self.buttonFont)
-    love.graphics.printf(self.backButton.text, self.backButton.x, 
-                        self.backButton.y + 7, self.backButton.width, "center")
+    -- Draw back button using Button module
+    self.backButton:draw()
 end
 
 function Credit:mousepressed(x, y, button)
     if button == 1 then  -- Left mouse button
-        if self:isMouseOver(self.backButton) then
+        if self.backButton:mousepressed(x, y, button) then
             return "title"  -- Signal to return to title screen
         end
     end
@@ -83,11 +70,5 @@ end
 
 function Credit:mousemoved(x, y)
     -- Update hover state for back button
-    self.backButton.hover = self:isMouseOver(self.backButton)
-end
-
-function Credit:isMouseOver(button)
-    local mx, my = love.mouse.getPosition()
-    return mx >= button.x and mx <= button.x + button.width and 
-           my >= button.y and my <= button.y + button.height
+    self.backButton:updateHover(x, y)
 end

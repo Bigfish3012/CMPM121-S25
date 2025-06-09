@@ -1,6 +1,7 @@
 -- card file: for the card class
 
 require "vector"
+local CardAnimation = require "cardAnimation"
 
 CardClass = {}
 
@@ -17,28 +18,11 @@ local manaCostIcons = {}
 -- Function to load card information from info.txt
 local function loadCardInfo()
     local cardInfo = {}
-        local possiblePaths = {
-        "info.txt",
-        "project3/info.txt",
-        "./info.txt"
-    }
     
-    local file = nil
-    local usedPath = nil
-    
-    for _, path in ipairs(possiblePaths) do
-        file = io.open(path, "r")
-        if file then
-            usedPath = path
-            break
-        end
-    end
+    local file = io.open("info.txt", "r")
     
     if not file then
-        print("Error: Could not open info.txt file! Tried paths:")
-        for _, path in ipairs(possiblePaths) do
-            print("  - " .. path)
-        end
+        print("Error: Could not open info.txt file at info.txt")
         return {}
     end    
     -- Skip the header line
@@ -143,6 +127,9 @@ function CardClass:new(xPos, yPos, name, power, manaCost, text, faceUp)
     card.faceUp = faceUp or false
     card.canDrag = false
     
+    -- Initialize animation properties using the animation module
+    CardAnimation:initCard(card)
+    
     -- Try to load the card image
     card.image = CardClass.loadCardImage(card.name)
     
@@ -179,7 +166,7 @@ function CardClass:draw()
             -- Only draw the highlight border when mouse is hovering or grabbing
             if self.state == CARD_STATE.MOUSE_OVER or self.state == CARD_STATE.GRABBED then
                 love.graphics.setColor(1, 0.8, 0, 0.5) -- Semi-transparent highlight border
-                love.graphics.setLineWidth(3)
+                love.graphics.setLineWidth(5)
                 love.graphics.rectangle("line", self.position.x, self.position.y, 
                                         self.image:getWidth(), self.image:getHeight(), 8, 8)
             end
@@ -243,8 +230,26 @@ function CardClass:checkForMouseOver(grabber)
     local mousePos = grabber.currentMousePos
     if not mousePos then return end
     
-    -- Use the mouseOver method to check if mouse is over this card
-    local isMouseOver = self:mouseOver(mousePos.x, mousePos.y)
+    -- Get card dimensions based on whether it's face up or face down
+    local cardWidth, cardHeight
+    
+    if self.faceUp and self.image then
+        cardWidth = self.image:getWidth()
+        cardHeight = self.image:getHeight()
+    elseif not self.faceUp and CardClass.cardBackImage then
+        cardWidth = CardClass.cardBackImage:getWidth()
+        cardHeight = CardClass.cardBackImage:getHeight()
+    else
+        -- Default dimensions if no image is available
+        cardWidth = 100
+        cardHeight = 120
+    end
+    
+    -- Check if mouse is over this card and update state
+    local isMouseOver = mousePos.x > self.position.x and 
+                       mousePos.x < self.position.x + cardWidth and 
+                       mousePos.y > self.position.y and
+                       mousePos.y < self.position.y + cardHeight
     
     -- Update card state based on mouse position
     self.state = isMouseOver and CARD_STATE.MOUSE_OVER or CARD_STATE.IDLE
@@ -325,37 +330,24 @@ function CardClass:description()
     local wrappedText = love.graphics.newText(love.graphics.getFont())
     wrappedText:setf(self.text or "", boxWidth - padding * 2, "left")
     love.graphics.draw(wrappedText, boxX + padding, textY)
-    
-    -- Reset font
-    love.graphics.setFont(love.graphics.getFont())
 end
 
-function CardClass:mouseOver(x, y)    
-    -- Skip check if card is already grabbed
-    if self.state == CARD_STATE.GRABBED then
-        return false
-    end
-    
-    -- Get card dimensions based on whether it's face up or face down
-    local cardWidth, cardHeight
-    
-    if self.faceUp and self.image then
-        cardWidth = self.image:getWidth()
-        cardHeight = self.image:getHeight()
-    elseif not self.faceUp and CardClass.cardBackImage then
-        cardWidth = CardClass.cardBackImage:getWidth()
-        cardHeight = CardClass.cardBackImage:getHeight()
-    else
-        -- Default dimensions if no image is available
-        cardWidth = 100
-        cardHeight = 120
-    end
-    
-    -- Check if mouse is over this card
-    local isOver = x > self.position.x and 
-            x < self.position.x + cardWidth and 
-            y > self.position.y and
-            y < self.position.y + cardHeight
-    
-    return isOver
+-- Start an animation from current position to target position
+function CardClass:startAnimation(targetX, targetY, duration)
+    CardAnimation:startAnimation(self, targetX, targetY, duration)
+end
+
+-- Update animation (call this in update loop)
+function CardClass:updateAnimation()
+    return CardAnimation:updateAnimation(self)
+end
+
+-- Check if card is currently animating
+function CardClass:isCurrentlyAnimating()
+    return CardAnimation:isAnimating(self)
+end
+
+-- Set animation completion callback
+function CardClass:setAnimationCallback(callback)
+    CardAnimation:setCompletionCallback(self, callback)
 end

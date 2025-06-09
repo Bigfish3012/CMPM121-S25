@@ -1,5 +1,7 @@
 -- uiManager.lua: Manages UI elements and interactions
 local GameLogic = require "game"
+local CardAnimation = require "cardAnimation"
+local Button = require "button"
 
 local UIManager = {}
 
@@ -10,128 +12,126 @@ function UIManager:new(screenWidth, screenHeight)
     
     ui.screenWidth = screenWidth
     ui.screenHeight = screenHeight
-    ui.endTurnButton = nil
-    ui.settingsButton = nil
+    
+    -- Create buttons using Button module
+    local buttonWidth = 150
+    local buttonHeight = 40
+    local buttonX = (screenWidth - buttonWidth) / 2
+    local buttonY = screenHeight - buttonHeight - 20
+    
+    ui.endTurnButton = Button:new(buttonX, buttonY, buttonWidth, buttonHeight, "SUBMIT", {
+        color = {0.2, 0.6, 0.8, 0.8},
+        hoverColor = {0.3, 0.7, 0.9, 0.8},
+        disabledColor = {0.4, 0.4, 0.4, 0.6},
+        textColor = {1, 1, 1, 1},
+        disabledTextColor = {0.6, 0.6, 0.6, 1},
+        borderColor = {0.1, 0.4, 0.6, 1},
+        borderWidth = 2,
+        font = love.graphics.newFont("asset/fonts/game.TTF", 16),
+        cornerRadius = 5
+    })
+    
+    ui.settingsButton = Button:new(buttonX + 200, buttonY, 100, buttonHeight, "Settings", {
+        color = {0.5, 0.5, 0.5, 0.8},
+        hoverColor = {0.6, 0.6, 0.6, 0.8},
+        textColor = {1, 1, 1, 1},
+        borderColor = {0.3, 0.3, 0.3, 1},
+        borderWidth = 2,
+        font = love.graphics.newFont("asset/fonts/game.TTF", 14),
+        cornerRadius = 5
+    })
     
     return ui
 end
 
+-- Check if any cards are currently animating
+function UIManager:areCardsAnimating(gameBoard)
+    if not gameBoard or not gameBoard.cards then
+        return false
+    end
+    
+    -- Check all cards for animation
+    for _, card in ipairs(gameBoard.cards) do
+        if card and card.isCurrentlyAnimating and card:isCurrentlyAnimating() then
+            return true
+        end
+    end
+    
+    -- Check if any mana animations are running
+    if gameBoard.playerManaAnimations then
+        for i = 1, 10 do
+            if gameBoard.playerManaAnimations[i] and CardAnimation:isAnimating(gameBoard.playerManaAnimations[i]) then
+                return true
+            end
+        end
+    end
+    
+    return false
+end
+
 -- Draw end turn button
-function UIManager:drawEndTurnButton()
+function UIManager:drawEndTurnButton(gameBoard)
     -- Get game state
     local gamePhase = GameLogic.gamePhase or "staging"
     local playerSubmitted = GameLogic.player and GameLogic.player.submitted or false
+    local cardsAnimating = self:areCardsAnimating(gameBoard)
     
-    -- Button dimensions and position
-    local buttonWidth = 150
-    local buttonHeight = 40
-    local buttonX = (self.screenWidth - buttonWidth) / 2
-    local buttonY = self.screenHeight - buttonHeight - 20
-    
-    -- Store button position for click detection
-    self.endTurnButton = {
-        x = buttonX,
-        y = buttonY,
-        width = buttonWidth,
-        height = buttonHeight
-    }
-    
-    -- Determine button color and text based on game state
+    -- Update button state and text based on game phase
     local buttonText = "SUBMIT"
-    local bgColor = {0.2, 0.6, 0.8, 0.8}
-    local borderColor = {0.1, 0.4, 0.6, 1}
+    local disabled = cardsAnimating or playerSubmitted or gamePhase == "revealing"
     
-    if playerSubmitted then
+    if cardsAnimating then
+        buttonText = "ANIMATING..."
+    elseif playerSubmitted then
         buttonText = "SUBMITTED"
-        bgColor = {0.6, 0.6, 0.6, 0.8}
-        borderColor = {0.4, 0.4, 0.4, 1}
     elseif gamePhase == "revealing" then
         buttonText = "REVEALING"
-        bgColor = {0.8, 0.6, 0.2, 0.8}
-        borderColor = {0.6, 0.4, 0.1, 1}
     end
     
-    -- Draw button background
-    love.graphics.setColor(bgColor)
-    love.graphics.rectangle("fill", buttonX, buttonY, buttonWidth, buttonHeight, 5, 5)
+    -- Update button properties
+    self.endTurnButton:setText(buttonText)
+    self.endTurnButton:setDisabled(disabled)
     
-    -- Draw button border
-    love.graphics.setColor(borderColor)
-    love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", buttonX, buttonY, buttonWidth, buttonHeight, 5, 5)
+    -- Set specific colors based on state
+    if gamePhase == "revealing" then
+        self.endTurnButton:setColors(
+            {0.8, 0.6, 0.2, 0.8},  -- color
+            {0.9, 0.7, 0.3, 0.8},  -- hoverColor
+            {1, 1, 1, 1}           -- textColor
+        )
+        self.endTurnButton.borderColor = {0.6, 0.4, 0.1, 1}
+    else
+        self.endTurnButton:setColors(
+            {0.2, 0.6, 0.8, 0.8},  -- color
+            {0.3, 0.7, 0.9, 0.8},  -- hoverColor
+            {1, 1, 1, 1}           -- textColor
+        )
+        self.endTurnButton.borderColor = {0.1, 0.4, 0.6, 1}
+    end
     
-    -- Draw button text
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.setFont(love.graphics.newFont("asset/fonts/game.TTF", 16))
-    local textWidth = love.graphics.getFont():getWidth(buttonText)
-    local textHeight = love.graphics.getFont():getHeight()
-    local textX = buttonX + (buttonWidth - textWidth) / 2
-    local textY = buttonY + (buttonHeight - textHeight) / 2
-    love.graphics.print(buttonText, textX, textY)
+    -- Draw the button
+    self.endTurnButton:draw()
 end
 
 -- Draw settings button
 function UIManager:drawSettingsButton()
-    -- Button dimensions and position (near the submit button)
-    local buttonWidth = 100
-    local buttonHeight = 40
-    local buttonX = (self.screenWidth - buttonWidth) / 2 + 200
-    local buttonY = self.screenHeight - buttonHeight - 20
-    
-    -- Store button position for click detection
-    self.settingsButton = {
-        x = buttonX,
-        y = buttonY,
-        width = buttonWidth,
-        height = buttonHeight
-    }
-    
-    -- Button styling
-    local bgColor = {0.5, 0.5, 0.5, 0.8}
-    local borderColor = {0.3, 0.3, 0.3, 1}
-    
-    -- Draw button background
-    love.graphics.setColor(bgColor)
-    love.graphics.rectangle("fill", buttonX, buttonY, buttonWidth, buttonHeight, 5, 5)
-    
-    -- Draw button border
-    love.graphics.setColor(borderColor)
-    love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", buttonX, buttonY, buttonWidth, buttonHeight, 5, 5)
-    
-    -- Draw button text
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.setFont(love.graphics.newFont("asset/fonts/game.TTF", 14))
-    local buttonText = "Settings"
-    local textWidth = love.graphics.getFont():getWidth(buttonText)
-    local textHeight = love.graphics.getFont():getHeight()
-    local textX = buttonX + (buttonWidth - textWidth) / 2
-    local textY = buttonY + (buttonHeight - textHeight) / 2
-    love.graphics.print(buttonText, textX, textY)
+    self.settingsButton:draw()
 end
 
--- Check if point is inside end turn button
+-- Update button hover states
+function UIManager:updateButtonHover(x, y)
+    self.endTurnButton:updateHover(x, y)
+    self.settingsButton:updateHover(x, y)
+end
+
+-- Check if point is inside end turn button and button is not disabled
 function UIManager:isPointInEndTurnButton(x, y)
-    if not self.endTurnButton then
-        return false
-    end
-    
-    return x >= self.endTurnButton.x and 
-           x <= self.endTurnButton.x + self.endTurnButton.width and
-           y >= self.endTurnButton.y and 
-           y <= self.endTurnButton.y + self.endTurnButton.height
+    return self.endTurnButton:mousepressed(x, y, 1)
 end
 
 -- Check if point is inside settings button
 function UIManager:isPointInSettingsButton(x, y)
-    if not self.settingsButton then
-        return false
-    end
-    
-    return x >= self.settingsButton.x and 
-           x <= self.settingsButton.x + self.settingsButton.width and
-           y >= self.settingsButton.y and 
-           y <= self.settingsButton.y + self.settingsButton.height
+    return self.settingsButton:mousepressed(x, y, 1)
 end
 
 return UIManager 

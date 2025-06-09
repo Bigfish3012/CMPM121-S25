@@ -1,7 +1,7 @@
 Card Name	Cost(Mana)	Power	Text
 Wooden Cow	1	1	Vanilla
 Pegasus	3	5	Vanilla
-Minotaur	5	9	Vanilla
+Minotaur	5	5	Vanilla
 Zeus	4	4	When Revealed: Lower the power of each card in your opponent's hand by 1.
 Ares	3	3	When Revealed: Gain +2 power for each enemy card here.
 Cyclops	3	5	When Revealed: Discard your other cards here, gain +2 power for each discarded.

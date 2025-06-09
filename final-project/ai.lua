@@ -21,9 +21,16 @@ function AI:canPlayCard(card)
 end
 
 -- Spend mana to play a card
-function AI:spendMana(amount)
+function AI:spendMana(amount, gameBoard)
     if self.mana >= amount then
+        local previousMana = self.mana
         self.mana = self.mana - amount
+        
+        -- Trigger mana use animation if gameBoard is available
+        if gameBoard and gameBoard.animateManaUse then
+            gameBoard:animateManaUse(false, previousMana, self.mana)
+        end
+        
         return true
     end
     return false
@@ -35,9 +42,15 @@ function AI:addManaBonus(amount)
 end
 
 -- Set mana for new turn
-function AI:setManaForTurn(baseMana)
+function AI:setManaForTurn(baseMana, gameBoard)
+    local previousMana = self.mana
     self.mana = baseMana + self.manaBonus
     self.manaBonus = 0  -- Reset bonus after use
+    
+    -- Trigger mana gain animation if mana increased and gameBoard is available
+    if gameBoard and gameBoard.animateManaGain and self.mana > previousMana then
+        gameBoard:animateManaGain(false, self.mana)
+    end
 end
 
 -- Add points to score
@@ -59,9 +72,27 @@ end
 function AI:drawCard(gameBoard)
     if #gameBoard.opponentHand < 7 and #gameBoard.opponentDeck > 0 then
         local card = table.remove(gameBoard.opponentDeck)
+        
+        -- Get deck and hand positions for animation
+        local deckPositions = gameBoard:getDeckPositions()
+        local deckPos = deckPositions.opponent
+        
+        -- Position card at deck first
+        card.position = Vector(deckPos.x, deckPos.y)
         card.faceUp = false
         card.canDrag = false
+        
+        -- Add to hand first so positioning calculation works
         table.insert(gameBoard.opponentHand, card)
+        
+        -- Calculate target position in hand
+        gameBoard:positionHandCards()
+        local targetPos = card.position
+        
+        -- Reset card to deck position and start animation
+        card.position = Vector(deckPos.x, deckPos.y)
+        card:startAnimation(targetPos.x, targetPos.y, 0.8)
+        
         return card
     end
     return nil
@@ -93,7 +124,7 @@ function AI:playTurn(gameBoard, gameLogic)
                 bestCard.faceUp = false  -- AI cards start face down
                 
                 -- Spend mana
-                if self:spendMana(bestCard.manaCost) then
+                if self:spendMana(bestCard.manaCost, gameBoard) then
                     -- Remove from hand
                     for i, card in ipairs(gameBoard.opponentHand) do
                         if card == bestCard then
@@ -227,7 +258,7 @@ function AI:playRandomCard(gameBoard)
                 -- Place card and spend mana
                 gameBoard.locations[locationIndex].opponentSlots[slotIndex] = card
                 card.faceUp = false  -- AI cards start face down
-                self:spendMana(card.manaCost)
+                self:spendMana(card.manaCost, gameBoard)
                 
                 -- Remove from hand
                 table.remove(gameBoard.opponentHand, cardIndex)

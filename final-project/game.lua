@@ -61,11 +61,16 @@ function GameLogic:discardCard(card, gameBoard)
     -- Check for Hydra discard effect before removing the card
     CardEffects:handleHydraDiscard(card, gameBoard)
     
+    -- Determine if this is a player card or opponent card
+    local isPlayerCard = self:isPlayerCard(card, gameBoard)
+    
     -- Remove from player hand
     for i, playerCard in ipairs(gameBoard.playerHand) do
         if playerCard == card then
             table.remove(gameBoard.playerHand, i)
-            break
+            -- Add to player discard pile
+            table.insert(gameBoard.playerDiscardPile, card)
+            return
         end
     end
     
@@ -73,8 +78,39 @@ function GameLogic:discardCard(card, gameBoard)
     for i, opponentCard in ipairs(gameBoard.opponentHand) do
         if opponentCard == card then
             table.remove(gameBoard.opponentHand, i)
-            break
+            -- Add to opponent discard pile
+            table.insert(gameBoard.opponentDiscardPile, card)
+            return
         end
+    end
+    
+    -- Remove from player slots and add to discard pile
+    for locationIndex = 1, 3 do
+        for slotIndex = 1, 4 do
+            if gameBoard.locations[locationIndex].playerSlots[slotIndex] == card then
+                gameBoard.locations[locationIndex].playerSlots[slotIndex] = nil
+                table.insert(gameBoard.playerDiscardPile, card)
+                return
+            end
+        end
+    end
+    
+    -- Remove from opponent slots and add to discard pile
+    for locationIndex = 1, 3 do
+        for slotIndex = 1, 4 do
+            if gameBoard.locations[locationIndex].opponentSlots[slotIndex] == card then
+                gameBoard.locations[locationIndex].opponentSlots[slotIndex] = nil
+                table.insert(gameBoard.opponentDiscardPile, card)
+                return
+            end
+        end
+    end
+    
+    -- If card is not found in hands or slots, add to appropriate discard pile based on isPlayerCard
+    if isPlayerCard then
+        table.insert(gameBoard.playerDiscardPile, card)
+    else
+        table.insert(gameBoard.opponentDiscardPile, card)
     end
     
     -- Remove from main cards array
@@ -120,9 +156,9 @@ function GameLogic:playCard(card, gameBoard, isPlayer)
     -- Spend mana using Player or AI class
     local success = false
     if isPlayer then
-        success = self.player:spendMana(card.manaCost)
+        success = self.player:spendMana(card.manaCost, gameBoard)
     else
-        success = self.ai:spendMana(card.manaCost)
+        success = self.ai:spendMana(card.manaCost, gameBoard)
     end
     
     if not success then
@@ -199,8 +235,8 @@ function GameLogic:startNextTurn()
     -- Set mana to turn number (max 10)
     local baseMana = math.min(10, self.turnNumber)
     
-    self.player:setManaForTurn(baseMana)
-    self.ai:setManaForTurn(baseMana)
+    self.player:setManaForTurn(baseMana, self.gameBoard)
+    self.ai:setManaForTurn(baseMana, self.gameBoard)
     
     -- Draw cards for both players
     self:drawCards()

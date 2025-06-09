@@ -1,5 +1,5 @@
 -- cards effect file:
-local cardModule = require("card")
+require "card"
 
 CardEffects = {}
 
@@ -100,12 +100,13 @@ function CardEffects:registerAllEffects()
     
     -- Demeter effect: When Revealed: Both players draw a card.
     self.effects["Demeter"] = function(card, gameBoard)
-        -- Both players draw a card from their deck
-        self:drawCard(gameBoard, true)
-        self:drawCard(gameBoard, false)
-        
-        -- Reposition hand cards
-        gameBoard:positionHandCards()
+        -- Both players draw a card from their deck using the animated draw methods
+        if self.gameLogic.player then
+            self.gameLogic.player:drawCard(gameBoard)
+        end
+        if self.gameLogic.ai then
+            self.gameLogic.ai:drawCard(gameBoard)
+        end
         
         return true
     end
@@ -177,28 +178,64 @@ function CardEffects:registerAllEffects()
     self.effects["Prometheus"] = function(card, gameBoard)
         local isPlayerCard = self.gameLogic:isPlayerCard(card, gameBoard)
         
-        -- Draw from opponent's deck to your hand
+        -- Draw from opponent's deck to your hand with animation
         local drawnCard = nil
         if isPlayerCard then
             -- Player draws from opponent's deck
             if #gameBoard.opponentDeck > 0 then
                 drawnCard = table.remove(gameBoard.opponentDeck, 1)
+                
+                -- Get deck and hand positions for animation
+                local deckPositions = gameBoard:getDeckPositions()
+                local deckPos = deckPositions.opponent  -- Drawing from opponent's deck
+                
+                -- Position card at opponent's deck first
+                drawnCard.position = Vector(deckPos.x, deckPos.y)
+                drawnCard.faceUp = false  -- Start face down, flip during animation
+                drawnCard.canDrag = false  -- Don't allow dragging during animation
+                
+                -- Add to player hand
                 table.insert(gameBoard.playerHand, drawnCard)
-                drawnCard.canDrag = true
-                drawnCard.faceUp = true  -- Player can see their cards
+                
+                -- Calculate target position in hand
+                gameBoard:positionHandCards()
+                local targetPos = drawnCard.position  -- positionHandCards sets the final position
+                
+                -- Reset card to opponent's deck position and start animation
+                drawnCard.position = Vector(deckPos.x, deckPos.y)
+                drawnCard:startAnimation(targetPos.x, targetPos.y, 0.8)
+                
+                -- Set up animation callback to flip card and enable dragging when animation completes
+                drawnCard:setAnimationCallback(function()
+                    drawnCard.faceUp = true
+                    drawnCard.canDrag = true
+                end)
             end
         else
             -- Opponent draws from player's deck
             if #gameBoard.playerDeck > 0 then
                 drawnCard = table.remove(gameBoard.playerDeck, 1)
-                table.insert(gameBoard.opponentHand, drawnCard)
+                
+                -- Get deck and hand positions for animation
+                local deckPositions = gameBoard:getDeckPositions()
+                local deckPos = deckPositions.player  -- Drawing from player's deck
+                
+                -- Position card at player's deck first
+                drawnCard.position = Vector(deckPos.x, deckPos.y)
+                drawnCard.faceUp = false
                 drawnCard.canDrag = false
-                drawnCard.faceUp = false  -- Opponent cards remain face down
+                
+                -- Add to opponent hand
+                table.insert(gameBoard.opponentHand, drawnCard)
+                
+                -- Calculate target position in hand
+                gameBoard:positionHandCards()
+                local targetPos = drawnCard.position  -- positionHandCards sets the final position
+                
+                -- Reset card to player's deck position and start animation
+                drawnCard.position = Vector(deckPos.x, deckPos.y)
+                drawnCard:startAnimation(targetPos.x, targetPos.y, 0.8)
             end
-        end
-        
-        if drawnCard then
-            gameBoard:positionHandCards()
         end
         
         return true
@@ -286,28 +323,6 @@ function CardEffects:triggerEffectWithLocation(cardName, card, gameBoard, locati
     end
 end
 
--- Helper function to draw a card
-function CardEffects:drawCard(gameBoard, isPlayer)
-    if isPlayer then
-        if #gameBoard.playerDeck > 0 then
-            local drawnCard = table.remove(gameBoard.playerDeck, 1)
-            table.insert(gameBoard.playerHand, drawnCard)
-            drawnCard.canDrag = true
-            drawnCard.faceUp = true  -- Player can see their cards
-            return drawnCard
-        end
-    else
-        if #gameBoard.opponentDeck > 0 then
-            local drawnCard = table.remove(gameBoard.opponentDeck, 1)
-            table.insert(gameBoard.opponentHand, drawnCard)
-            drawnCard.canDrag = false
-            drawnCard.faceUp = false  -- Opponent cards remain face down
-            return drawnCard
-        end
-    end
-    return nil
-end
-
 -- Trigger a card effect
 function CardEffects:triggerEffect(cardName, card, gameBoard)
     local effectFunction = self.effects[cardName]
@@ -341,10 +356,10 @@ function CardEffects:handleHydraDiscard(card, gameBoard)
         
         -- Create two copies of Hydra
         for i = 1, 2 do
-            local hydraInfo = cardModule.CARD_INFO["Hydra"]
+            local hydraInfo = CARD_INFO["Hydra"]
             
             if hydraInfo then
-                local newHydra = cardModule.CardClass:new(0, 0, hydraInfo.name, hydraInfo.power, hydraInfo.manaCost, hydraInfo.text, false)
+                local newHydra = CardClass:new(0, 0, hydraInfo.name, hydraInfo.power, hydraInfo.manaCost, hydraInfo.text, false)
                 newHydra.canDrag = isPlayerCard
                 table.insert(targetHand, newHydra)
                 table.insert(gameBoard.cards, newHydra)

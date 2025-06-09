@@ -113,8 +113,10 @@ function CardPositioning:getSlotPosition(locationIndex, slotIndex, isOpponent, s
         slotY = locationY + dims.locationHeight - 150
     end
     
-    -- Return card position centered in slot
-    return Vector(slotX + (slotWidth - cardWidth) / 2, slotY + (slotHeight - cardHeight) / 2)
+    -- Return card position with slight right offset and better centering
+    local cardOffsetX = (slotWidth - cardWidth) / 2 + 5
+    local cardOffsetY = (slotHeight - cardHeight) / 2
+    return Vector(slotX + cardOffsetX, slotY + cardOffsetY)
 end
 
 return CardPositioning 

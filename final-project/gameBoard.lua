@@ -3,6 +3,7 @@ local GameLogic = require "game"
 local DeckManager = require "deckManager"
 local CardPositioning = require "cardPositioning"
 local UIManager = require "uiManager"
+local CardAnimation = require "cardAnimation"
 
 GameBoard = {}
 
@@ -21,6 +22,8 @@ function GameBoard:new(width, height)
     gameBoard.opponentDeck = {}
     gameBoard.playerHand = {}
     gameBoard.opponentHand = {}
+    gameBoard.playerDiscardPile = {}
+    gameBoard.opponentDiscardPile = {}
     gameBoard.cards = {}
     
     -- Initialize 3 game locations, each with 4 slots
@@ -30,6 +33,23 @@ function GameBoard:new(width, height)
             playerSlots = {nil, nil, nil, nil},
             opponentSlots = {nil, nil, nil, nil}
         }
+    end
+    
+    -- Initialize mana animation objects (only for player, AI uses text display)
+    gameBoard.playerManaAnimations = {}
+    for i = 1, 10 do
+        -- Create animation objects for each player mana crystal
+        gameBoard.playerManaAnimations[i] = {position = {x = 0, y = 0}}
+        
+        -- Initialize animation properties
+        CardAnimation:initCard(gameBoard.playerManaAnimations[i])
+        
+        -- Set initial alpha: first crystal is active (for starting mana of 1), rest are semi-transparent
+        if i == 1 then
+            CardAnimation:setCurrentAlpha(gameBoard.playerManaAnimations[i], 1.0)
+        else
+            CardAnimation:setCurrentAlpha(gameBoard.playerManaAnimations[i], 0.3)
+        end
     end
     
     -- Create managers
@@ -61,6 +81,13 @@ function GameBoard:initializeGame()
     self:positionHandCards()
 end
 
+-- Load card back image (helper function to avoid duplication)
+function GameBoard:loadCardBackImage()
+    if not self.cardBackImage then
+        self.cardBackImage = love.graphics.newImage("asset/img/card_back.png")
+    end
+end
+
 -- Main draw function
 function GameBoard:draw()
     love.graphics.setColor(0, 0.7, 0.2, 1)
@@ -71,7 +98,7 @@ function GameBoard:draw()
     self:drawDeckPile()
     self:drawManaPool()
     self:drawHands()
-    self.uiManager:drawEndTurnButton()
+    self.uiManager:drawEndTurnButton(self)
     self.uiManager:drawSettingsButton()
 end
 
@@ -133,9 +160,10 @@ function GameBoard:drawLocationSlots(locationX, locationY, locationWidth, isOppo
         end
         
         if card then
-            -- Position card at center of slot
-            card.position = Vector(slotX + (slotWidth - self.cardWidth) / 2, 
-                                slotY + (slotHeight - self.cardHeight) / 2)
+            -- Position card with slight right offset and better centering
+            local cardOffsetX = (slotWidth - self.cardWidth) / 2 + 5  -- Add 3px right offset
+            local cardOffsetY = (slotHeight - self.cardHeight) / 2
+            card.position = Vector(slotX + cardOffsetX, slotY + cardOffsetY)
             card:draw()
         end
     end
@@ -143,9 +171,7 @@ end
 
 -- Draw discard pile
 function GameBoard:drawDiscardPile()
-    if not self.cardBackImage then
-        self.cardBackImage = love.graphics.newImage("asset/img/card_back.png")
-    end
+    self:loadCardBackImage()
     
     local cardWidth = self.cardBackImage:getWidth()
     local cardHeight = self.cardBackImage:getHeight()
@@ -173,9 +199,7 @@ end
 
 -- Draw deck pile
 function GameBoard:drawDeckPile()
-    if not self.cardBackImage then
-        self.cardBackImage = love.graphics.newImage("asset/img/card_back.png")
-    end
+    self:loadCardBackImage()
     
     local cardWidth = self.cardBackImage:getWidth()
     local cardHeight = self.cardBackImage:getHeight()
@@ -214,7 +238,7 @@ function GameBoard:drawDeckPile()
     end
 end
 
--- Draw mana pool
+-- Draw mana pool with animations
 function GameBoard:drawManaPool()
     if not self.manaImage then
         self.manaImage = love.graphics.newImage("asset/img/Mana.png")
@@ -233,11 +257,11 @@ function GameBoard:drawManaPool()
     local playerManaStartX = self.screenWidth - 270
     local playerManaY = self.screenHeight - 160
     
-    -- Opponent mana position
+    -- Opponent mana position (only for text display now)
     local opponentManaStartX = 150
     local opponentManaY = 20
     
-    -- Draw player mana (max 10)
+    -- Update mana animation positions and draw player mana (max 10)
     for i = 1, 10 do
         local col = ((i - 1) % 5) + 1  -- 5 mana per row
         local row = math.ceil(i / 5)    -- Row number
@@ -245,53 +269,56 @@ function GameBoard:drawManaPool()
         local x = playerManaStartX + (col - 1) * (manaWidth + spacing)
         local y = playerManaY + (row - 1) * (manaHeight + spacing)
         
-        -- Draw filled or empty mana
+        -- Update animation object position
+        self.playerManaAnimations[i].position.x = x
+        self.playerManaAnimations[i].position.y = y
+        
+        -- Update animation
+        CardAnimation:updateAnimation(self.playerManaAnimations[i])
+        
+        -- Get current alpha for this mana crystal
+        local alpha = CardAnimation:getCurrentAlpha(self.playerManaAnimations[i])
+        
+        -- Draw mana crystal with animated alpha
         local image = (i <= playerMana) and self.manaImage or self.emptyManaImage
-        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.setColor(1, 1, 1, alpha)
         love.graphics.draw(image, x, y)
     end
     
-    -- Draw opponent mana (max 10)
-    for i = 1, 10 do
-        local col = ((i - 1) % 5) + 1
-        local row = math.ceil(i / 5)
-        
-        local x = opponentManaStartX + (col - 1) * (manaWidth + spacing)
-        local y = opponentManaY + (row - 1) * (manaHeight + spacing)
-        
-        -- Draw filled or empty mana
-        local image = (i <= opponentMana) and self.manaImage or self.emptyManaImage
-        love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.draw(image, x, y)
-    end
-    
-    -- Draw scores
-    self:drawScores(playerManaStartX, playerManaY, opponentManaStartX, opponentManaY, manaHeight)
+    -- Draw mana text and scores
+    self:drawManaTextAndScores(playerManaStartX, playerManaY, opponentManaStartX, opponentManaY, manaHeight, playerMana, opponentMana)
 end
 
--- Draw scores
-function GameBoard:drawScores(playerManaX, playerManaY, opponentManaX, opponentManaY, manaHeight)
+-- Draw mana text and scores
+function GameBoard:drawManaTextAndScores(playerManaX, playerManaY, opponentManaX, opponentManaY, manaHeight, playerMana, opponentMana)
     -- Get scores from the new system
     local playerScore = GameLogic.player and GameLogic.player.score or 0
     local opponentScore = GameLogic.ai and GameLogic.ai.score or 0
     local targetScore = GameLogic.targetScore or 20
     
-    -- Score text
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.setFont(love.graphics.newFont("asset/fonts/game.TTF", 16))
     
-    -- Player score
+    -- Player mana text (above score)
+    local playerManaText = "Mana  : " .. playerMana .. "/10"
+    local playerManaTextY = playerManaY + manaHeight * 2 + 20
+    love.graphics.print(playerManaText, playerManaX, playerManaTextY)
+    
+    -- Player score (below mana text)
     local playerScoreText = "SCORE: " .. playerScore .. "/" .. targetScore
-    local playerScoreY = playerManaY + manaHeight * 2 + 20
+    local playerScoreY = playerManaTextY + 25
     love.graphics.print(playerScoreText, playerManaX, playerScoreY)
     
-    -- Opponent score
-    local opponentScoreText = "SCORE: " .. opponentScore .. "/" .. targetScore
-    local opponentScoreY = opponentManaY + manaHeight * 2 + 20
-    love.graphics.print(opponentScoreText, opponentManaX, opponentScoreY)
+    -- Opponent mana text (above score)
+    love.graphics.setFont(love.graphics.newFont("asset/fonts/game.TTF", 20))
+    local opponentManaText = "Mana  : " .. opponentMana .. "/10"
+    local opponentManaTextY = opponentManaY + 20  -- No mana crystals for opponent, so start higher
+    love.graphics.print(opponentManaText, opponentManaX, opponentManaTextY)
     
-    -- Reset font
-    love.graphics.setFont(love.graphics.getFont())
+    -- Opponent score (below mana text)
+    local opponentScoreText = "SCORE: " .. opponentScore .. "/" .. targetScore
+    local opponentScoreY = opponentManaTextY + 25
+    love.graphics.print(opponentScoreText, opponentManaX, opponentScoreY)
 end
 
 -- Draw hands
@@ -302,9 +329,7 @@ function GameBoard:drawHands()
     end
     
     -- Draw opponent hand
-    if not self.cardBackImage then
-        self.cardBackImage = love.graphics.newImage("asset/img/card_back.png")
-    end
+    self:loadCardBackImage()
     
     for _, card in ipairs(self.opponentHand) do
         card:draw()
@@ -352,4 +377,69 @@ end
 -- Check if point is in settings button
 function GameBoard:isPointInSettingsButton(x, y)
     return self.uiManager:isPointInSettingsButton(x, y)
+end
+
+-- Get deck positions for animation
+function GameBoard:getDeckPositions()
+    self:loadCardBackImage()
+    
+    local cardWidth = self.cardBackImage:getWidth()
+    local cardHeight = self.cardBackImage:getHeight()
+    
+    -- Player deck position
+    local playerDeckX = 20
+    local playerDeckY = self.screenHeight - 160
+    
+    -- Opponent deck position
+    local opponentDeckX = self.screenWidth - 120
+    local opponentDeckY = 20
+    
+    return {
+        player = {x = playerDeckX, y = playerDeckY},
+        opponent = {x = opponentDeckX, y = opponentDeckY}
+    }
+end
+
+-- Trigger mana gain animation for player only (AI has no visual mana crystals)
+function GameBoard:animateManaGain(isPlayer, manaAmount)
+    if not isPlayer then
+        return -- AI has no mana crystal animations
+    end
+    
+    local animations = self.playerManaAnimations
+    
+    -- Animate mana crystals that should be gaining mana
+    for i = 1, math.min(manaAmount, 10) do
+        CardAnimation:startManaGainAnimation(animations[i], 0.8)
+    end
+end
+
+-- Trigger mana use animation for player only (AI has no visual mana crystals)
+function GameBoard:animateManaUse(isPlayer, previousMana, newMana)
+    if not isPlayer then
+        return -- AI has no mana crystal animations
+    end
+    
+    local animations = self.playerManaAnimations
+    
+    -- Animate mana crystals that were used (from previousMana down to newMana)
+    for i = newMana + 1, math.min(previousMana, 10) do
+        CardAnimation:startManaUseAnimation(animations[i], 0.6)
+    end
+end
+
+-- Update mana display states (call this when mana changes without animation)
+function GameBoard:updateManaDisplay()
+    local playerMana = GameLogic.player and GameLogic.player.mana or 1
+    
+    -- Update player mana display only (AI has no mana crystals)
+    for i = 1, 10 do
+        if not CardAnimation:isManaAnimating(self.playerManaAnimations[i]) then
+            if i <= playerMana then
+                CardAnimation:setCurrentAlpha(self.playerManaAnimations[i], 1.0)
+            else
+                CardAnimation:setCurrentAlpha(self.playerManaAnimations[i], 0.3)
+            end
+        end
+    end
 end

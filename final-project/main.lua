@@ -88,11 +88,25 @@ function love.update()
         -- Update game board and grabber
         grabber:update()
         
+        -- Update card animations
+        if gameBoard and gameBoard.cards then
+            for _, card in ipairs(gameBoard.cards) do
+                if card and card.updateAnimation then
+                    card:updateAnimation()
+                end
+            end
+        end
+        
+        -- Update mana display states
+        if gameBoard and gameBoard.updateManaDisplay then
+            gameBoard:updateManaDisplay()
+        end
+        
         -- Check win conditions (only if game hasn't ended yet)
         if not gameEnded then
             local winner = GameLogic:checkWinCondition(gameBoard)
             if winner then
-                gameEnded = true  -- Set flag to prevent repeated sound playing
+                gameEnded = true
                 if winner == "player" then
                     bgMusic2:stop()
                     winSound:play()
@@ -206,6 +220,11 @@ function love.mousemoved(x, y, dx, dy)
         titleScreen:mousemoved(x, y)
     elseif currentScreen == "credits" then
         creditScreen:mousemoved(x, y)
+    elseif currentScreen == "game" then
+        -- Update UI buttons in game screen
+        if gameBoard and gameBoard.uiManager then
+            gameBoard.uiManager:updateButtonHover(x, y)
+        end
     end
 end
 
@@ -232,24 +251,5 @@ function switchMusic(screen)
         if bgMusic2 and not bgMusic2:isPlaying() then
             bgMusic2:play()
         end
-    end
-end
-
-function getCurrentMusic()
-    if currentScreen == "title" or currentScreen == "credits" then
-        return bgMusic
-    elseif currentScreen == "game" then
-        return bgMusic2
-    end
-    return nil
-end
-
--- Clean up when the game is closed
-function love.quit()
-    if bgMusic then
-        bgMusic:stop()
-    end
-    if bgMusic2 then
-        bgMusic2:stop()
     end
 end

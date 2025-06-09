@@ -1,5 +1,7 @@
 -- setting.lua: Settings box for in-game options
 
+local Button = require "button"
+
 SettingBox = {}
 
 function SettingBox:new(width, height)
@@ -18,16 +20,37 @@ function SettingBox:new(width, height)
     settingBox.y = (height - 320) / 2
     
     -- Button properties
-    settingBox.buttonWidth = 200
-    settingBox.buttonHeight = 50
+    local buttonWidth = 200
+    local buttonHeight = 50
+    local buttonX = settingBox.x + (settingBox.width - buttonWidth) / 2
+    
+    -- Create buttons using Button module
+    settingBox.buttons = {
+        restart = Button:new(buttonX, settingBox.y + 70, buttonWidth, buttonHeight, "Restart", {
+            color = {0.259, 0.812, 0.035, 1},
+            hoverColor = {0.306, 0.941, 0.051, 1},
+            textColor = {1, 1, 1},
+            font = love.graphics.newFont("asset/fonts/game.TTF", 18),
+            cornerRadius = 5
+        }),
+        titleScreen = Button:new(buttonX, settingBox.y + 140, buttonWidth, buttonHeight, "Title Screen", {
+            color = {0.976, 0.710, 0.447, 1},
+            hoverColor = {1.0, 0.810, 0.547, 1},
+            textColor = {1, 1, 1},
+            font = love.graphics.newFont("asset/fonts/game.TTF", 18),
+            cornerRadius = 5
+        }),
+        quitGame = Button:new(buttonX, settingBox.y + 210, buttonWidth, buttonHeight, "Quit Game", {
+            color = {1.0, 0.408, 0.408, 1},
+            hoverColor = {1.0, 0.508, 0.508, 1},
+            textColor = {1, 1, 1},
+            font = love.graphics.newFont("asset/fonts/game.TTF", 18),
+            cornerRadius = 5
+        })
+    }
     
     -- State
     settingBox.visible = false
-    
-    -- Button hover states
-    settingBox.restartHover = false
-    settingBox.titleScreenHover = false
-    settingBox.quitGameHover = false
     
     return settingBox
 end
@@ -65,66 +88,10 @@ function SettingBox:draw()
     local titleWidth = love.graphics.getFont():getWidth(titleText)
     love.graphics.print(titleText, self.x + (self.width - titleWidth) / 2, self.y + 20)
     
-    -- Button positioning
-    local buttonX = self.x + (self.width - self.buttonWidth) / 2
-    
-    -- Draw restart button
-    local restartButtonY = self.y + 70
-    
-    if self.restartHover then
-        love.graphics.setColor(0.306, 0.941, 0.051, 1)
-    else
-        love.graphics.setColor(0.259, 0.812, 0.035, 1)
+    -- Draw buttons using Button module
+    for _, button in pairs(self.buttons) do
+        button:draw()
     end
-    love.graphics.rectangle("fill", buttonX, restartButtonY, self.buttonWidth, self.buttonHeight, 5, 5)
-    
-    -- Draw title screen button
-    local titleButtonY = self.y + 140
-    
-    if self.titleScreenHover then
-        love.graphics.setColor(1.0, 0.810, 0.547, 1)
-    else
-        love.graphics.setColor(0.976, 0.710, 0.447, 1)
-    end
-    love.graphics.rectangle("fill", buttonX, titleButtonY, self.buttonWidth, self.buttonHeight, 5, 5)
-    
-    -- Draw quit game button
-    local quitButtonY = self.y + 210
-    
-    if self.quitGameHover then
-        love.graphics.setColor(1.0, 0.508, 0.508, 1)
-    else
-        love.graphics.setColor(1.0, 0.408, 0.408, 1)
-    end
-    love.graphics.rectangle("fill", buttonX, quitButtonY, self.buttonWidth, self.buttonHeight, 5, 5)
-    
-    -- Button text
-    love.graphics.setFont(love.graphics.newFont("asset/fonts/game.TTF", 18))
-    love.graphics.setColor(1, 1, 1, 1)
-    
-    -- Restart button text
-    local restartButtonText = "Restart"
-    local restartTextWidth = love.graphics.getFont():getWidth(restartButtonText)
-    local restartTextHeight = love.graphics.getFont():getHeight()
-    local restartTextX = buttonX + (self.buttonWidth - restartTextWidth) / 2
-    local restartTextY = restartButtonY + (self.buttonHeight - restartTextHeight) / 2
-    love.graphics.print(restartButtonText, restartTextX, restartTextY)
-    
-    -- Title screen button text
-    local titleButtonText = "Title Screen"
-    local titleTextWidth = love.graphics.getFont():getWidth(titleButtonText)
-    local titleTextHeight = love.graphics.getFont():getHeight()
-    local titleTextX = buttonX + (self.buttonWidth - titleTextWidth) / 2
-    local titleTextY = titleButtonY + (self.buttonHeight - titleTextHeight) / 2
-    love.graphics.print(titleButtonText, titleTextX, titleTextY)
-    
-    -- Quit game button text
-    local quitButtonText = "Quit Game"
-    local quitTextWidth = love.graphics.getFont():getWidth(quitButtonText)
-    local quitTextHeight = love.graphics.getFont():getHeight()
-    local quitTextX = buttonX + (self.buttonWidth - quitTextWidth) / 2
-    local quitTextY = quitButtonY + (self.buttonHeight - quitTextHeight) / 2
-    love.graphics.print(quitButtonText, quitTextX, quitTextY)
 end
 
 function SettingBox:mousepressed(x, y, button)
@@ -132,28 +99,14 @@ function SettingBox:mousepressed(x, y, button)
         return nil
     end
     
-    local buttonX = self.x + (self.width - self.buttonWidth) / 2
-    
-    -- Check restart button
-    local restartButtonY = self.y + 70
-    if x >= buttonX and x <= buttonX + self.buttonWidth and 
-       y >= restartButtonY and y <= restartButtonY + self.buttonHeight then
+    -- Check button clicks using Button module
+    if self.buttons.restart:mousepressed(x, y, button) then
         self:hide()
         return "restart"
-    end
-    
-    -- Check title screen button
-    local titleButtonY = self.y + 140
-    if x >= buttonX and x <= buttonX + self.buttonWidth and 
-       y >= titleButtonY and y <= titleButtonY + self.buttonHeight then
+    elseif self.buttons.titleScreen:mousepressed(x, y, button) then
         self:hide()
         return "title"
-    end
-    
-    -- Check quit game button
-    local quitButtonY = self.y + 210
-    if x >= buttonX and x <= buttonX + self.buttonWidth and 
-       y >= quitButtonY and y <= quitButtonY + self.buttonHeight then
+    elseif self.buttons.quitGame:mousepressed(x, y, button) then
         self:hide()
         return "quit"
     end
@@ -173,22 +126,10 @@ function SettingBox:mousemoved(x, y)
         return
     end
     
-    local buttonX = self.x + (self.width - self.buttonWidth) / 2
-    
-    -- Update restart button hover state
-    local restartButtonY = self.y + 70
-    self.restartHover = (x >= buttonX and x <= buttonX + self.buttonWidth and 
-                        y >= restartButtonY and y <= restartButtonY + self.buttonHeight)
-    
-    -- Update title screen button hover state
-    local titleButtonY = self.y + 140
-    self.titleScreenHover = (x >= buttonX and x <= buttonX + self.buttonWidth and 
-                            y >= titleButtonY and y <= titleButtonY + self.buttonHeight)
-    
-    -- Update quit game button hover state
-    local quitButtonY = self.y + 210
-    self.quitGameHover = (x >= buttonX and x <= buttonX + self.buttonWidth and 
-                         y >= quitButtonY and y <= quitButtonY + self.buttonHeight)
+    -- Update button hover states using Button module
+    for _, button in pairs(self.buttons) do
+        button:updateHover(x, y)
+    end
 end
 
 return SettingBox
