@@ -55,7 +55,7 @@
 - [Holy Asset Pack](https://deepdivegamestudio.itch.io/holyassetpack)
 - [Monster Asset Pack](https://deepdivegamestudio.itch.io/monsterassetpack)
 
-### Music
+### Music and sound effects
 - Background Music 1: https://pixabay.com/music/video-games-pixel-fight-8-bit-arcade-music-background-music-for-video-208775/
 
 - Background Music 2: https://pixabay.com/music/video-games-byte-blast-8-bit-arcade-music-background-music-for-video-208780/
@@ -63,6 +63,10 @@
 - win sound effect: https://pixabay.com/sound-effects/brass-fanfare-with-timpani-and-winchimes-reverberated-146260/
 
 - lose sound effect: https://pixabay.com/sound-effects/violin-lose-4-185125/
+
+- card flip sound effect: https://pixabay.com/sound-effects/turnpage-99756/
+
+- button click sound effect: https://pixabay.com/sound-effects/level-passed-142971/
 
 ## References
 - [Multiple Screen Management](https://love2d.org/forums/viewtopic.php?t=93629)

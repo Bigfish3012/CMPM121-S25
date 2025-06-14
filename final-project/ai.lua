@@ -1,4 +1,6 @@
 -- ai.lua: AI opponent logic and decision making
+require "vector"
+local AIStrategy = require "aiStrategy"
 
 AI = {}
 
@@ -11,7 +13,8 @@ function AI:new()
     ai.mana = 1
     ai.manaBonus = 0
     ai.score = 0
-    ai.submitted = false    
+    ai.submitted = false
+    ai.allAnimationsComplete = true  -- Initialize animation state as complete
     return ai
 end
 
@@ -66,6 +69,12 @@ end
 -- Reset for new turn
 function AI:resetForNewTurn()
     self.submitted = false
+    self.allAnimationsComplete = true  -- Reset animation state
+end
+
+-- Check if all AI animations are complete
+function AI:areAllAnimationsComplete()
+    return self.allAnimationsComplete ~= false  -- Default to true if not set
 end
 
 -- Draw a card from deck to hand
@@ -107,167 +116,141 @@ end
 function AI:playTurn(gameBoard, gameLogic)
     if not gameBoard then return end
     
-    local attempts = 0
-    local maxAttempts = 20
+    -- Initialize animation state
+    self.allAnimationsComplete = false
     
-    -- AI tries to play cards based on strategy
-    while #gameBoard.opponentHand > 0 and attempts < maxAttempts do
+    -- AI will play cards synchronously to avoid animation timing issues
+    self:playCardsSequentially(gameBoard, gameLogic)
+end
+
+-- Play cards one by one, considering mana constraints
+function AI:playCardsSequentially(gameBoard, gameLogic)
+    -- Create a list of cards to play
+    local cardsToPlay = {}
+    local attempts = 0
+    local maxAttempts = 20 
+    local maxCardsPerTurn = 4
+    local consecutiveFailures = 0
+    local maxConsecutiveFailures = 5    
+    
+    while #gameBoard.opponentHand > 0 and attempts < maxAttempts and #cardsToPlay < maxCardsPerTurn and consecutiveFailures < maxConsecutiveFailures do
         attempts = attempts + 1
+        local playFound = false
         
-        local bestCard, bestLocation, bestSlot = self:chooseBestPlay(gameBoard)
+        local bestCard, bestLocation, bestSlot = AIStrategy:chooseBestPlay(gameBoard, cardsToPlay, self)
         
         if bestCard and bestLocation and bestSlot then
-            -- Try to place the card
-            if gameBoard.locations[bestLocation].opponentSlots[bestSlot] == nil then
-                -- Place card and spend mana
-                gameBoard.locations[bestLocation].opponentSlots[bestSlot] = bestCard
-                bestCard.faceUp = false  -- AI cards start face down
+            -- Check if slot is empty and AI can afford the card
+            if AIStrategy:isSlotAvailable(gameBoard, bestLocation, bestSlot, cardsToPlay) and self:canPlayCard(bestCard) then
+                -- Add to play queue
+                table.insert(cardsToPlay, {
+                    card = bestCard,
+                    location = bestLocation,
+                    slot = bestSlot
+                })
                 
-                -- Spend mana
-                if self:spendMana(bestCard.manaCost, gameBoard) then
-                    -- Remove from hand
-                    for i, card in ipairs(gameBoard.opponentHand) do
-                        if card == bestCard then
-                            table.remove(gameBoard.opponentHand, i)
-                            break
-                        end
-                    end
-                    gameBoard:positionHandCards()
-                    break
-                else
-                    -- Can't afford card, remove it from slot
-                    gameBoard.locations[bestLocation].opponentSlots[bestSlot] = nil
+                -- Immediately spend mana to prevent double-spending
+                self:spendMana(bestCard.manaCost or 0, gameBoard)
+                playFound = true
+            else
+                -- Can't play best card, try random placement
+                local randomPlay = AIStrategy:getRandomPlay(gameBoard, cardsToPlay, self)
+                if randomPlay then
+                    table.insert(cardsToPlay, randomPlay)
+                    self:spendMana(randomPlay.card.manaCost or 0, gameBoard)
+                    playFound = true
                 end
             end
         else
-            -- No valid play found, try random placement
-            self:playRandomCard(gameBoard)
+            -- No valid strategic play found, try random placement
+            local randomPlay = AIStrategy:getRandomPlay(gameBoard, cardsToPlay, self)
+            if randomPlay then
+                table.insert(cardsToPlay, randomPlay)
+                self:spendMana(randomPlay.card.manaCost or 0, gameBoard)
+                playFound = true
+            end
+        end
+        
+        if playFound then
+            consecutiveFailures = 0
+        else
+            consecutiveFailures = consecutiveFailures + 1
+        end
+        if not playFound and consecutiveFailures >= maxConsecutiveFailures then
             break
         end
     end
+    
+    -- Now play cards with proper animation sequencing
+    if #cardsToPlay > 0 then
+        self.allAnimationsComplete = false
+        self:playCardsWithAnimation(cardsToPlay, gameBoard, 1, function()
+            self.allAnimationsComplete = true
+        end)
+    else
+        -- No cards to play, animations are immediately complete
+        self.allAnimationsComplete = true
+    end
 end
 
--- Choose the best card and location to play (AI strategy)
-function AI:chooseBestPlay(gameBoard)
-    local bestCard = nil
-    local bestLocation = nil
-    local bestSlot = nil
-    local bestScore = -1
-    
-    -- Evaluate each card in hand
-    for _, card in ipairs(gameBoard.opponentHand) do
-        if self:canPlayCard(card) then
-            -- Evaluate each location
-            for locationIndex = 1, 3 do
-                for slotIndex = 1, 4 do
-                    if gameBoard.locations[locationIndex].opponentSlots[slotIndex] == nil then
-                        local score = self:evaluatePlay(card, locationIndex, slotIndex, gameBoard)
-                        if score > bestScore then
-                            bestScore = score
-                            bestCard = card
-                            bestLocation = locationIndex
-                            bestSlot = slotIndex
-                        end
-                    end
-                end
-            end
-        end
-    end
-    
-    return bestCard, bestLocation, bestSlot
-end
 
--- Evaluate how good a play would be (AI strategy)
-function AI:evaluatePlay(card, locationIndex, slotIndex, gameBoard)
-    local score = 0
-    
-    -- Base score is the card's power
-    score = score + (card.power or 0)
-    
-    -- Bonus for playing in locations where we're behind
-    local playerPower = 0
-    local aiPower = 0
-    
-    for slot = 1, 4 do
-        local playerCard = gameBoard.locations[locationIndex].playerSlots[slot]
-        local aiCard = gameBoard.locations[locationIndex].opponentSlots[slot]
-        
-        if playerCard and playerCard.faceUp then
-            playerPower = playerPower + (playerCard.power or 0)
-        end
-        if aiCard and aiCard.faceUp then
-            aiPower = aiPower + (aiCard.power or 0)
-        end
-    end
-    
-    -- If we're behind in this location, prioritize it
-    if playerPower > aiPower then
-        score = score + 5
-    end
-    
-    -- Special card considerations
-    if card.name == "Ares" then
-        -- Ares gets stronger with enemy cards, so prefer contested locations
-        local enemyCards = 0
-        for slot = 1, 4 do
-            if gameBoard.locations[locationIndex].playerSlots[slot] then
-                enemyCards = enemyCards + 1
-            end
-        end
-        score = score + enemyCards * 2
-    elseif card.name == "Cyclops" then
-        -- Cyclops benefits from having other cards to sacrifice
-        local ownCards = 0
-        for slot = 1, 4 do
-            if gameBoard.locations[locationIndex].opponentSlots[slot] then
-                ownCards = ownCards + 1
-            end
-        end
-        score = score + ownCards * 2
-    elseif card.name == "Zeus" then
-        -- Zeus is generally good, slight bonus
-        score = score + 3
-    end
-    
-    -- Prefer playing higher cost cards when we have more mana
-    if self.mana > 5 and (card.manaCost or 0) > 3 then
-        score = score + 2
-    end
-    
-    return score
-end
 
--- Fallback: play a random card (simple AI)
-function AI:playRandomCard(gameBoard)
-    local attempts = 0
-    while #gameBoard.opponentHand > 0 and attempts < 10 do
-        attempts = attempts + 1
+
+
+-- Play cards with sequential animation
+function AI:playCardsWithAnimation(cardsToPlay, gameBoard, index, onAllAnimationsComplete)
+    if index > #cardsToPlay then
+        -- All cards have been played, call completion callback if provided
+        if onAllAnimationsComplete then
+            onAllAnimationsComplete()
+        end
+        return
+    end
+    
+    local play = cardsToPlay[index]
+    local card = play.card
+    local location = play.location
+    local slot = play.slot
+    
+    -- Calculate target position for animation
+    local targetPos = gameBoard.cardPositioning:getSlotPosition(
+        location, slot, true, 
+        gameBoard.screenWidth, gameBoard.screenHeight, 
+        gameBoard.cardWidth, gameBoard.cardHeight
+    )
+    
+    -- Set up completion callback to place card and continue with next card
+    card.animationCompleteCallback = function()
+        -- Place the actual card in the slot
+        gameBoard.locations[location].opponentSlots[slot] = card
+        card.faceUp = false  -- AI cards start face down
         
-        -- Pick a random card from AI hand
-        local cardIndex = love.math.random(1, #gameBoard.opponentHand)
-        local card = gameBoard.opponentHand[cardIndex]
-        
-        -- Check if AI can afford this card
-        if self:canPlayCard(card) then
-            -- Find a random empty slot
-            local locationIndex = love.math.random(1, 3)
-            local slotIndex = love.math.random(1, 4)
-            
-            -- Try to place the card
-            if gameBoard.locations[locationIndex].opponentSlots[slotIndex] == nil then
-                -- Place card and spend mana
-                gameBoard.locations[locationIndex].opponentSlots[slotIndex] = card
-                card.faceUp = false  -- AI cards start face down
-                self:spendMana(card.manaCost, gameBoard)
-                
-                -- Remove from hand
-                table.remove(gameBoard.opponentHand, cardIndex)
-                gameBoard:positionHandCards()
+        -- Remove from hand
+        for i, c in ipairs(gameBoard.opponentHand) do
+            if c == card then
+                table.remove(gameBoard.opponentHand, i)
                 break
             end
         end
+        gameBoard:positionHandCards()
+        
+        -- Notify GameLogic that a card was played (for placement tracking)
+        local GameLogic = require "game"
+        GameLogic:onCardPlayed(card, gameBoard)
+        
+        -- Play next card immediately (no delay needed since animations are sequential)
+        if index < #cardsToPlay then
+            self:playCardsWithAnimation(cardsToPlay, gameBoard, index + 1, onAllAnimationsComplete)
+        else
+            -- This was the last card, call completion callback
+            if onAllAnimationsComplete then
+                onAllAnimationsComplete()
+            end
+        end
     end
+    
+    -- Start animation from hand to board position
+    card:startAnimation(targetPos.x, targetPos.y, 0.6)
 end
-
 
 return AI

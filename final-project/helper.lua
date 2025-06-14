@@ -1,6 +1,7 @@
 -- helper file: for helper functions
 
 local Button = require("button")
+local ResourceManager = require("resourceManager")
 
 -- GameOver box module
 GameOverBox = {}
@@ -34,21 +35,21 @@ function GameOverBox:new(width, height)
             color = {0.259, 0.812, 0.035, 1},
             hoverColor = {0.306, 0.941, 0.051, 1},
             textColor = {1, 1, 1},
-            font = love.graphics.newFont("asset/fonts/game.TTF", 16),
+            font = ResourceManager:getGameFont(16),
             cornerRadius = 5
         }),
         title = Button:new(startX + buttonWidth + buttonSpacing, buttonY, buttonWidth, buttonHeight, "Title", {
             color = {0.976, 0.710, 0.447, 1},
             hoverColor = {1.0, 0.810, 0.547, 1},
             textColor = {1, 1, 1},
-            font = love.graphics.newFont("asset/fonts/game.TTF", 16),
+            font = ResourceManager:getGameFont(16),
             cornerRadius = 5
         }),
         quit = Button:new(startX + 2 * (buttonWidth + buttonSpacing), buttonY, buttonWidth, buttonHeight, "Quit", {
             color = {1.0, 0.408, 0.408, 1},
             hoverColor = {1.0, 0.508, 0.508, 1},
             textColor = {1, 1, 1},
-            font = love.graphics.newFont("asset/fonts/game.TTF", 16),
+            font = ResourceManager:getGameFont(16),
             cornerRadius = 5
         })
     }
@@ -87,7 +88,7 @@ function GameOverBox:draw()
     
     -- Draw title
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.setFont(love.graphics.newFont("asset/fonts/game.TTF", 24))
+    love.graphics.setFont(ResourceManager:getGameFont(30))
     
     local titleText = "Game Over"
     if self.result == "win" then

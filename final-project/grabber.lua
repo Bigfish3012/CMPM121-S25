@@ -4,6 +4,7 @@
 require "vector"
 local GameLogic = require "game"
 local CardEffects = require "cards_eff"
+local ResourceManager = require "resourceManager"
 GrabberClass = {}
 
 function GrabberClass:new(gameBoard)
@@ -59,6 +60,8 @@ end
 function GrabberClass:resetGrabState()
     if self.heldObject then
         self.heldObject.state = CARD_STATE.IDLE
+        -- clear temporary data
+        self.heldObject.originalPosition = nil
     end
     self.heldObject = nil
     self.grabPos = nil
@@ -88,9 +91,15 @@ function GrabberClass:grab()
         if card.faceUp and card.image then
             cardWidth = card.image:getWidth()
             cardHeight = card.image:getHeight()
-        elseif not card.faceUp and CardClass.cardBackImage then
-            cardWidth = CardClass.cardBackImage:getWidth()
-            cardHeight = CardClass.cardBackImage:getHeight()
+        elseif not card.faceUp then
+            local cardBackImage = ResourceManager:getCardBackImage()
+            if cardBackImage then
+                cardWidth = cardBackImage:getWidth()
+                cardHeight = cardBackImage:getHeight()
+            else
+                cardWidth = 100
+                cardHeight = 120
+            end
         else
             -- Default dimensions if no image is available
             cardWidth = 100
@@ -120,51 +129,73 @@ end
 
 -- Handle card release after dragging
 function GrabberClass:release()
-    -- If we have a held card
-    if self.heldObject then
-        -- Check if the card is in a valid drop zone
-        local locationIndex, slotIndex, isPlayer = self:checkValidDropZone()
-        
-        if not locationIndex then
-            -- If not a valid drop, return card to original position
-            if self.heldObject.originalPosition then
-                self.heldObject.position = self.heldObject.originalPosition
-            end
-        else
-            -- Try to place the card in the slot
-            local cardPlaced = self.gameBoard:placeCardInSlot(self.heldObject, locationIndex, slotIndex, isPlayer)
-            
-            if cardPlaced then
-                -- Always treat cards dropped by player as player cards
-                local isPlayerCard = true
-                
-                -- try to play the card (spend mana and trigger effects)
-                local cardPlayed = GameLogic:playCard(self.heldObject, self.gameBoard, isPlayerCard)
-                
-                if cardPlayed then
-                    -- Trigger card effects with location information
-                    CardEffects:triggerEffectWithLocation(self.heldObject.name, self.heldObject, self.gameBoard, locationIndex, slotIndex)
-                    
-                    -- Check for passive effects (like Athena) after successful card placement
-                    CardEffects:checkPassiveEffects(self.heldObject, self.gameBoard, locationIndex)
-                else
-                    -- if mana is not enough, remove from slot and return to hand
-                    self.gameBoard.locations[locationIndex].playerSlots[slotIndex] = nil
-                    table.insert(self.gameBoard.playerHand, self.heldObject)
-                    self.gameBoard:positionHandCards()
-                end
-            else
-                -- Slot is occupied, return to original position
-                if self.heldObject.originalPosition then
-                    self.heldObject.position = self.heldObject.originalPosition
-                end
-            end
-        end
+    if not self.heldObject then
+        self:resetGrabState()
+        return
     end
     
-    -- Reset grabber state
+    local locationIndex, slotIndex, isPlayer = self:checkValidDropZone()
+    
+    if not locationIndex then
+        -- Invalid drop zone - return card to original position
+        self:returnCardToOriginalPosition()
+    else
+        -- Valid drop zone - attempt to place card
+        self:attemptCardPlacement(locationIndex, slotIndex, isPlayer)
+    end
+    
+    -- Clean up
     self:resetGrabState()
     self.grabPos = nil
+end
+
+-- Return card to its original position
+function GrabberClass:returnCardToOriginalPosition()
+    if self.heldObject.originalPosition then
+        self.heldObject:startAnimation(self.heldObject.originalPosition.x, self.heldObject.originalPosition.y, 0.3)
+    end
+end
+
+-- Attempt to place card in the specified slot
+function GrabberClass:attemptCardPlacement(locationIndex, slotIndex, isPlayer)
+    local cardPlaced = self.gameBoard:placeCardInSlot(self.heldObject, locationIndex, slotIndex, isPlayer)
+    
+    if not cardPlaced then
+        -- Slot is occupied - return to original position
+        self:returnCardToOriginalPosition()
+        return
+    end
+    
+    -- Card placed successfully - now check if player can afford it
+    local cardPlayed = GameLogic:playCard(self.heldObject, self.gameBoard, true)
+    
+    if not cardPlayed then
+        -- Not enough mana - undo the placement
+        self:undoCardPlacement(locationIndex, slotIndex)
+    end
+end
+
+-- Undo card placement and return card to hand
+function GrabberClass:undoCardPlacement(locationIndex, slotIndex)
+    -- Remove card from slot
+    self.gameBoard.locations[locationIndex].playerSlots[slotIndex] = nil
+    
+    -- Restore card to face-up state (cards in player's hand should be face-up)
+    -- Play flip sound effect
+    if playFlipSound then
+        playFlipSound()
+    end
+    self.heldObject.faceUp = true
+    
+    -- Return card to player's hand
+    table.insert(self.gameBoard.playerHand, self.heldObject)
+    
+    -- Reposition hand cards and get target position
+    self.gameBoard:positionHandCards()
+    local targetPos = self.heldObject.position
+    
+    -- Animate the card to its proper hand position
+    self.heldObject:startAnimation(targetPos.x, targetPos.y, 0.4)
 end
 
 -- Check if card is dropped in a valid zone

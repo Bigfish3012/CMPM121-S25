@@ -2,8 +2,12 @@
 
 require "vector"
 local CardAnimation = require "cardAnimation"
+local ResourceManager = require "resourceManager"
 
 CardClass = {}
+
+-- Static variable to track which card needs description rendering
+CardClass.cardNeedingDescription = nil
 
 CARD_STATE = {
     IDLE = 0,
@@ -19,17 +23,30 @@ local manaCostIcons = {}
 local function loadCardInfo()
     local cardInfo = {}
     
-    local file = io.open("info.txt", "r")
+    -- Try to read the file using Love2D's filesystem
+    local success, contents = pcall(love.filesystem.read, "info.txt")
     
-    if not file then
-        print("Error: Could not open info.txt file at info.txt")
+    if not success or not contents then
+        print("Error: Could not open info.txt file")
+        return {}
+    end
+    
+    -- Split contents into lines
+    local lines = {}
+    for line in contents:gmatch("[^\r\n]+") do
+        table.insert(lines, line)
+    end
+    
+    if #lines == 0 then
+        print("Error: info.txt file is empty")
         return {}
     end    
     -- Skip the header line
-    local header = file:read("*line")
+    local startIndex = 2 -- Skip the first line (header)
     
     -- Read each line and parse card data
-    for line in file:lines() do
+    for i = startIndex, #lines do
+        local line = lines[i]
         if line and line ~= "" then
             -- Split by tab characters
             local parts = {}
@@ -53,7 +70,6 @@ local function loadCardInfo()
         end
     end
     
-    file:close()
     return cardInfo
 end
 
@@ -75,7 +91,7 @@ function CardClass.loadCardImage(cardName)
         cardImages[cardName] = image
         return image
     else
-        
+        print("Warning: Could not load card image for '" .. cardName .. "' at path: " .. imagePath)
         cardImages[cardName] = nil
         return nil
     end
@@ -136,90 +152,110 @@ function CardClass:new(xPos, yPos, name, power, manaCost, text, faceUp)
     return card
 end
 
-function CardClass:draw()
-    if self.faceUp then
-        -- Draw the front of the card
-        if self.image then
-            -- Draw the image at its original size (without scaling)
+-- Helper function to draw mana cost icon
+local function drawManaCostIcon(self)
+    if self.manaCost ~= nil then
+        local manaCostIcon = CardClass.loadManaCostIcon(self.manaCost)
+        if manaCostIcon then
             love.graphics.setColor(1, 1, 1, 1)
-            love.graphics.draw(self.image, self.position.x, self.position.y)
-            
-            -- Draw mana cost icon in the top-left corner
-            if self.manaCost ~= nil then
-                local manaCostIcon = CardClass.loadManaCostIcon(self.manaCost)
-                if manaCostIcon then
-                    love.graphics.setColor(1, 1, 1, 1)
-                    love.graphics.draw(manaCostIcon, self.position.x + 5, self.position.y + 5)
-                end
-            end
-            
-            -- Draw power icon in the top-right corner
-            if self.power ~= nil then
-                local powerIcon = CardClass.loadPowerIcon(self.power)
-                if powerIcon then
-                    love.graphics.setColor(1, 1, 1, 1)
-                    local iconX = self.position.x + self.image:getWidth() - powerIcon:getWidth() - 5
-                    love.graphics.draw(powerIcon, iconX, self.position.y + 5)
-                end
-            end
-            
-            -- Only draw the highlight border when mouse is hovering or grabbing
-            if self.state == CARD_STATE.MOUSE_OVER or self.state == CARD_STATE.GRABBED then
-                love.graphics.setColor(1, 0.8, 0, 0.5) -- Semi-transparent highlight border
-                love.graphics.setLineWidth(5)
-                love.graphics.rectangle("line", self.position.x, self.position.y, 
-                                        self.image:getWidth(), self.image:getHeight(), 8, 8)
-            end
-        else
-            -- If there's no image, draw a simple placeholder
-            love.graphics.setColor(0.8, 0.8, 0.8, 1)
-            love.graphics.rectangle("fill", self.position.x, self.position.y, 100, 150, 8, 8)
-            love.graphics.setColor(0, 0, 0, 1)
-            love.graphics.setFont(love.graphics.newFont("asset/fonts/game.TTF", 12))
-            love.graphics.print(self.name, self.position.x + 10, self.position.y + 60)
-            
-            -- Draw mana cost and power icons even for placeholder cards
-            if self.manaCost ~= nil then
-                local manaCostIcon = CardClass.loadManaCostIcon(self.manaCost)
-                if manaCostIcon then
-                    love.graphics.setColor(1, 1, 1, 1)
-                    love.graphics.draw(manaCostIcon, self.position.x + 5, self.position.y + 5)
-                end
-            end
-            
-            if self.power ~= nil then
-                local powerIcon = CardClass.loadPowerIcon(self.power)
-                if powerIcon then
-                    love.graphics.setColor(1, 1, 1, 1)
-                    local iconX = self.position.x + 100 - powerIcon:getWidth() - 5
-                    love.graphics.draw(powerIcon, iconX, self.position.y + 5)
-                end
-            end
+            love.graphics.draw(manaCostIcon, self.position.x + 5, self.position.y + 5)
         end
-    else
-        -- Draw the back of the card
-        if not CardClass.cardBackImage then
-            CardClass.cardBackImage = love.graphics.newImage("asset/img/card_back.png")
-        end
-        love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.draw(CardClass.cardBackImage, self.position.x, self.position.y)
-        
-        -- Only draw the highlight border when mouse is hovering or grabbing
-        if self.state == CARD_STATE.MOUSE_OVER or self.state == CARD_STATE.GRABBED then
-            love.graphics.setColor(1, 0.8, 0, 0.5) -- Semi-transparent highlight border
-            love.graphics.setLineWidth(3)
-            love.graphics.rectangle("line", self.position.x, self.position.y, 
-                                  CardClass.cardBackImage:getWidth(), CardClass.cardBackImage:getHeight(), 8, 8)
-        end
-    end
-    
-    -- Show card description (when mouse is hovering)
-    if self.state == CARD_STATE.MOUSE_OVER then
-        self:description()
     end
 end
 
+-- Helper function to draw power icon
+local function drawPowerIcon(self)
+    if self.power ~= nil then
+        local powerIcon = CardClass.loadPowerIcon(self.power)
+        if powerIcon then
+            love.graphics.setColor(1, 1, 1, 1)
+            local iconX = self.position.x + (self.image and self.image:getWidth() or 100) - powerIcon:getWidth() - 5
+            love.graphics.draw(powerIcon, iconX, self.position.y + 5)
+        end
+    end
+end
 
+-- Helper function to draw highlight border
+local function drawHighlightBorder(self, width, height)
+    if self.state == CARD_STATE.MOUSE_OVER or self.state == CARD_STATE.GRABBED then
+        love.graphics.setColor(1, 0.8, 0, 0.5)
+        love.graphics.setLineWidth(self.faceUp and 5 or 3)
+        love.graphics.rectangle("line", self.position.x, self.position.y, width, height, 8, 8)
+    end
+end
+
+-- Helper function to draw face-up card
+local function drawFaceUpCard(self)
+    if self.image then
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.draw(self.image, self.position.x, self.position.y)
+        
+        drawManaCostIcon(self)
+        drawPowerIcon(self)
+        drawHighlightBorder(self, self.image:getWidth(), self.image:getHeight())
+    else
+        -- Draw placeholder
+        love.graphics.setColor(0.8, 0.8, 0.8, 1)
+        love.graphics.rectangle("fill", self.position.x, self.position.y, 100, 150, 8, 8)
+        love.graphics.setColor(0, 0, 0, 1)
+        love.graphics.setFont(love.graphics.newFont("asset/fonts/game.TTF", 12))
+        love.graphics.print(self.name, self.position.x + 10, self.position.y + 60)
+        
+        drawManaCostIcon(self)
+        drawPowerIcon(self)
+        drawHighlightBorder(self, 100, 150)
+    end
+end
+
+-- Helper function to draw face-down card
+local function drawFaceDownCard(self)
+    local cardBackImage = ResourceManager:getCardBackImage()
+    if cardBackImage then
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.draw(cardBackImage, self.position.x, self.position.y)
+        drawHighlightBorder(self, cardBackImage:getWidth(), cardBackImage:getHeight())
+    end
+end
+
+function CardClass:draw()
+    -- Store original color to restore later
+    local originalR, originalG, originalB, originalA = love.graphics.getColor()
+    
+    if self.faceUp then
+        drawFaceUpCard(self)
+    else
+        drawFaceDownCard(self)
+    end
+    
+    -- Restore original color
+    love.graphics.setColor(originalR, originalG, originalB, originalA)
+    
+    -- Set this card as needing description rendering if it's being hovered
+    if self.state == CARD_STATE.MOUSE_OVER then
+        CardClass.cardNeedingDescription = self
+    end
+end
+
+-- Helper function to get card dimensions
+local function getCardDimensions(self)
+    if self.faceUp and self.image then
+        return self.image:getWidth(), self.image:getHeight()
+    elseif not self.faceUp then
+        local cardBackImage = ResourceManager:getCardBackImage()
+        if cardBackImage then
+            return cardBackImage:getWidth(), cardBackImage:getHeight()
+        end
+    end
+    return 100, 120  -- Default dimensions
+end
+
+-- Helper function to check if mouse is over card
+local function isMouseOverCard(self, mousePos, width, height)
+    return mousePos.x > self.position.x and 
+           mousePos.x < self.position.x + width and 
+           mousePos.y > self.position.y and
+           mousePos.y < self.position.y + height
+end
 
 function CardClass:checkForMouseOver(grabber)
     -- Skip check if card is already grabbed
@@ -230,35 +266,66 @@ function CardClass:checkForMouseOver(grabber)
     local mousePos = grabber.currentMousePos
     if not mousePos then return end
     
-    -- Get card dimensions based on whether it's face up or face down
-    local cardWidth, cardHeight
-    
-    if self.faceUp and self.image then
-        cardWidth = self.image:getWidth()
-        cardHeight = self.image:getHeight()
-    elseif not self.faceUp and CardClass.cardBackImage then
-        cardWidth = CardClass.cardBackImage:getWidth()
-        cardHeight = CardClass.cardBackImage:getHeight()
-    else
-        -- Default dimensions if no image is available
-        cardWidth = 100
-        cardHeight = 120
-    end
-    
-    -- Check if mouse is over this card and update state
-    local isMouseOver = mousePos.x > self.position.x and 
-                       mousePos.x < self.position.x + cardWidth and 
-                       mousePos.y > self.position.y and
-                       mousePos.y < self.position.y + cardHeight
+    local cardWidth, cardHeight = getCardDimensions(self)
+    local isMouseOver = isMouseOverCard(self, mousePos, cardWidth, cardHeight)
     
     -- Update card state based on mouse position
     self.state = isMouseOver and CARD_STATE.MOUSE_OVER or CARD_STATE.IDLE
 end
 
+-- Helper function to calculate description box position
+local function calculateDescriptionBoxPosition(mouseX, mouseY, boxWidth, boxHeight)
+    local screenWidth, screenHeight = love.graphics.getDimensions()
+    local boxX = mouseX + 20
+    local boxY = mouseY - boxHeight / 2
+    
+    -- Keep the box within screen bounds
+    if boxX + boxWidth > screenWidth then
+        boxX = mouseX - boxWidth - 20
+    end
+    
+    boxY = math.max(0, math.min(boxY, screenHeight - boxHeight))
+    
+    return boxX, boxY
+end
+
+-- Helper function to draw description background
+local function drawDescriptionBackground(boxX, boxY, boxWidth, boxHeight)
+    -- Draw semi-transparent background
+    love.graphics.setColor(0, 0, 0, 0.9)
+    love.graphics.rectangle("fill", boxX, boxY, boxWidth, boxHeight, 8, 8)
+    
+    -- Draw border
+    love.graphics.setColor(1, 1, 1, 0.8)
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle("line", boxX, boxY, boxWidth, boxHeight, 8, 8)
+end
+
+-- Helper function to draw description text
+local function drawDescriptionText(self, boxX, boxY, boxWidth, padding)
+    love.graphics.setColor(1, 1, 1, 1)
+    
+    -- Card name
+    love.graphics.setFont(ResourceManager:getDescriptionFont(20))
+    love.graphics.print(self.name, boxX + padding, boxY + padding)
+
+    -- Stats
+    love.graphics.setFont(ResourceManager:getDescriptionFont(16))
+    local statsY = boxY + padding + 25
+    local statsText = "Mana: " .. (self.manaCost or "?") .. "  Power: " .. (self.power or "?")
+    love.graphics.print(statsText, boxX + padding, statsY)
+    
+    -- Description text
+    love.graphics.setFont(ResourceManager:getDescriptionFont(14))
+    local textY = boxY + padding + 55
+    local wrappedText = love.graphics.newText(love.graphics.getFont())
+    wrappedText:setf(self.text or "", boxWidth - padding * 2, "left")
+    love.graphics.draw(wrappedText, boxX + padding, textY)
+end
+
 function CardClass:description()    
     -- Only show description for face up cards that are being hovered over
     if not self.faceUp or self.state ~= CARD_STATE.MOUSE_OVER then
-        -- Reset hover timer if not hovering
         self.hoverStartTime = nil
         return
     end
@@ -269,85 +336,50 @@ function CardClass:description()
         return
     end
     
-    -- Calculate how long the mouse has been hovering
+    -- Only show description after 0.5 seconds of hovering
     local hoverDuration = love.timer.getTime() - self.hoverStartTime
-    
-    -- Only show description after 2 seconds of hovering
-    if hoverDuration < 2 then
+    if hoverDuration < 0.5 then
         return
     end
     
-    -- Get mouse position
+    -- Get mouse position and box dimensions
     local mouseX, mouseY = love.mouse.getPosition()
+    local boxWidth, boxHeight = 300, 180
+    local padding = 15
     
-    -- Box dimensions
-    local boxWidth = 200
-    local boxHeight = 120
-    local padding = 10
+    local boxX, boxY = calculateDescriptionBoxPosition(mouseX, mouseY, boxWidth, boxHeight)
     
-    -- Position the box to the right of the mouse, but keep it on screen
-    local screenWidth, screenHeight = love.graphics.getDimensions()
-    local boxX = mouseX + 20
-    local boxY = mouseY - boxHeight / 2
+    -- Store original color
+    local originalR, originalG, originalB, originalA = love.graphics.getColor()
     
-    -- Keep the box within screen bounds
-    if boxX + boxWidth > screenWidth then
-        boxX = mouseX - boxWidth - 20
-    end
+    drawDescriptionBackground(boxX, boxY, boxWidth, boxHeight)
+    drawDescriptionText(self, boxX, boxY, boxWidth, padding)
     
-    if boxY < 0 then
-        boxY = 0
-    elseif boxY + boxHeight > screenHeight then
-        boxY = screenHeight - boxHeight
-    end
-    
-    -- Draw semi-transparent background
-    love.graphics.setColor(0, 0, 0, 0.8)
-    love.graphics.rectangle("fill", boxX, boxY, boxWidth, boxHeight, 8, 8)
-    
-    -- Draw border
-    love.graphics.setColor(1, 1, 1, 0.5)
-    love.graphics.rectangle("line", boxX, boxY, boxWidth, boxHeight, 8, 8)
-    
-    -- Draw card information
-    love.graphics.setColor(1, 1, 1, 1)
-    
-    -- Card name (title)
-    love.graphics.setFont(love.graphics.newFont("asset/fonts/des.ttf", 14))
-    love.graphics.print(self.name, boxX + padding, boxY + padding)
-
-    -- Mana cost and power information
-    love.graphics.setFont(love.graphics.newFont("asset/fonts/des.ttf", 12))
-    local statsY = boxY + padding + 20
-    local statsText = "Mana: " .. (self.manaCost or "?") .. "  Power: " .. (self.power or "?")
-    love.graphics.print(statsText, boxX + padding, statsY)
-    
-    -- Card text/description
-    love.graphics.setFont(love.graphics.newFont("asset/fonts/des.ttf", 10))
-    local textY = boxY + padding + 45
-    
-    -- Wrap text to fit in the box
-    local wrappedText = love.graphics.newText(love.graphics.getFont())
-    wrappedText:setf(self.text or "", boxWidth - padding * 2, "left")
-    love.graphics.draw(wrappedText, boxX + padding, textY)
+    -- Restore original color
+    love.graphics.setColor(originalR, originalG, originalB, originalA)
 end
 
--- Start an animation from current position to target position
+-- Add a static method to draw descriptions on top of everything
+function CardClass.drawDescriptions()
+    if CardClass.cardNeedingDescription then
+        CardClass.cardNeedingDescription:description()
+        CardClass.cardNeedingDescription = nil  -- Reset for next frame
+    end
+end
+
+-- Animation methods
 function CardClass:startAnimation(targetX, targetY, duration)
     CardAnimation:startAnimation(self, targetX, targetY, duration)
 end
 
--- Update animation (call this in update loop)
 function CardClass:updateAnimation()
     return CardAnimation:updateAnimation(self)
 end
 
--- Check if card is currently animating
 function CardClass:isCurrentlyAnimating()
     return CardAnimation:isAnimating(self)
 end
 
--- Set animation completion callback
 function CardClass:setAnimationCallback(callback)
     CardAnimation:setCompletionCallback(self, callback)
 end

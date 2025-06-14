@@ -92,6 +92,10 @@ function Player:drawCard(gameBoard)
         
         -- Set up animation callback to flip card and enable dragging when animation completes
         card:setAnimationCallback(function()
+            -- Play flip sound effect
+            if playFlipSound then
+                playFlipSound()
+            end
             card.faceUp = true
             card.canDrag = true
         end)

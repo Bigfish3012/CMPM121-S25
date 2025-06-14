@@ -13,40 +13,27 @@ require "ai"
 require "setting"
 
 local GameLogic = require "game"
+local ResourceManager = require "resourceManager"
+local AudioManager = require "audioManager"
+local InputManager = require "inputManager"
 
 local currentScreen = "title"
 local screenWidth = 1400
 local screenHeight = 800
-local titleScreen = nil
-local creditScreen = nil
-local gameOverBox = nil
-local settingBox = nil
-local gameBoard = nil
-
-local bgMusic = nil
-local bgMusic2 = nil
-local winSound = nil
-local loseSound = nil
-
 local gameEnded = false
 
+-- Screen references
+local screens = {}
+local gameBoard = nil
+local grabber = nil
+
 function love.load()
-    -- Load background music
-    bgMusic = love.audio.newSource("asset/music/bg-music.mp3", "stream")
-    bgMusic:setLooping(true)
-    bgMusic:setVolume(0.3)
-    bgMusic:play()
-
-    bgMusic2 = love.audio.newSource("asset/music/bg-music2.mp3", "stream")
-    bgMusic2:setLooping(true)
-    bgMusic2:setVolume(0.3)
-
-    winSound = love.audio.newSource("asset/music/win.mp3", "static")
-    winSound:setVolume(0.3)
-
-    loseSound = love.audio.newSource("asset/music/lose.mp3", "static")
-    loseSound:setVolume(0.3)
-
+    -- Preload resources
+    ResourceManager:preloadCommonResources()
+    
+    -- Initialize audio system
+    AudioManager:init()
+    
     initializeGame()
 end
 
@@ -57,36 +44,57 @@ function initializeGame()
     love.graphics.setBackgroundColor(0, 0.7, 0.2, 1)
     
     -- Initialize screens with dimensions
-    if not titleScreen then
-        titleScreen = Title:new(screenWidth, screenHeight)
+    if not screens.titleScreen then
+        screens.titleScreen = Title:new(screenWidth, screenHeight)
     end
     
-    if not creditScreen then
-        creditScreen = Credit:new(screenWidth, screenHeight)
+    if not screens.creditScreen then
+        screens.creditScreen = Credit:new(screenWidth, screenHeight)
     end
     
-    if not gameOverBox then
-        gameOverBox = GameOverBox:new(screenWidth, screenHeight)
+    if not screens.gameOverBox then
+        screens.gameOverBox = GameOverBox:new(screenWidth, screenHeight)
     end
     
-    if not settingBox then
-        settingBox = SettingBox:new(screenWidth, screenHeight)
+    if not screens.settingBox then
+        screens.settingBox = SettingBox:new(screenWidth, screenHeight)
     end
+    
+    -- Add initializeGame reference to screens for InputManager
+    screens.initializeGame = initializeGame
     
     -- Always reinitialize the game board on restart
     gameBoard = GameBoard:new(screenWidth, screenHeight)
     grabber = GrabberClass:new(gameBoard)
     GameLogic.init(gameBoard)
     
+    -- Set up game end callback
+    GameLogic.onGameEnd = function(winner)
+        gameEnded = true
+        if winner == "player" then
+            AudioManager:playWinSound()
+            showGameOver("win")
+        else
+            AudioManager:playLoseSound()
+            showGameOver("lose")
+        end
+    end
+    
     gameEnded = false
-
 end
 
-function love.update()
-    -- Update game logic here
-    if currentScreen == "game" then
-        -- Update game board and grabber
-        grabber:update()
+function love.update(dt)
+    -- Update audio system
+    AudioManager:update(dt)
+    
+    -- Update game logic
+    if currentScreen == "game" and not gameEnded then
+        GameLogic:update(dt)
+        
+        -- Update game board and grabber (only if player can interact)
+        if GameLogic:canPlayerInteract() then
+            grabber:update()
+        end
         
         -- Update card animations
         if gameBoard and gameBoard.cards then
@@ -101,155 +109,47 @@ function love.update()
         if gameBoard and gameBoard.updateManaDisplay then
             gameBoard:updateManaDisplay()
         end
-        
-        -- Check win conditions (only if game hasn't ended yet)
-        if not gameEnded then
-            local winner = GameLogic:checkWinCondition(gameBoard)
-            if winner then
-                gameEnded = true
-                if winner == "player" then
-                    bgMusic2:stop()
-                    winSound:play()
-                    showGameOver("win")
-                else
-                    bgMusic2:stop()
-                    loseSound:play()
-                    showGameOver("lose")
-                end
-            end
-        end
     end
 end
 
 function love.draw()
     if currentScreen == "title" then
-        titleScreen:draw()
+        screens.titleScreen:draw()
     elseif currentScreen == "credits" then
-        creditScreen:draw()
+        screens.creditScreen:draw()
     else
         gameBoard:draw()
+        -- Draw turn animation overlay (only if game hasn't ended)
+        if not gameEnded then
+            GameLogic:drawTurnAnimation(screenWidth, screenHeight)
+        end
     end
-    gameOverBox:draw()
-    settingBox:draw()
+    screens.gameOverBox:draw()
+    screens.settingBox:draw()
 end
 
 function love.mousepressed(x, y, button)
-    -- First check if setting box is interacted with
-    if settingBox.visible then
-        local result = settingBox:mousepressed(x, y, button)
-        if result == "restart" then
-            initializeGame()
-            currentScreen = "game"
-            switchMusic("game")
-            return
-        elseif result == "title" then
-            initializeGame()
-            currentScreen = "title"
-            switchMusic("title")
-            return
-        elseif result == "quit" then
-            love.event.quit()
-            return
-        elseif result == "close" then
-            return
-        end
-    end
-    
-    -- Then check if game over box is interacted with
-    if gameOverBox.visible then
-        local result = gameOverBox:mousepressed(x, y, button)
-        if result == "title" then
-            initializeGame()
-            currentScreen = "title"
-            switchMusic("title")
-            return
-        elseif result == "restart" then
-            initializeGame()
-            currentScreen = "game"
-            switchMusic("game")
-            return
-        elseif result == "quit" then
-            love.event.quit()
-            return
-        end
-    end
-    
-    -- Process other screens if no overlay is visible or was not interacted with
-    if currentScreen == "title" then
-        local result = titleScreen:mousepressed(x, y, button)
-        if result == "game" then
-            currentScreen = "game"
-            switchMusic("game")
-        elseif result == "credits" then
-            currentScreen = "credits"
-            switchMusic("credits")
-        elseif result == "quit" then
-            love.event.quit()
-        end
-    elseif currentScreen == "credits" then
-        local result = creditScreen:mousepressed(x, y, button)
-        if result == "title" then
-            currentScreen = "title"
-            switchMusic("title")
-        end
-    elseif currentScreen == "game" then
-        -- Check if settings button was clicked
-        if gameBoard and gameBoard:isPointInSettingsButton(x, y) then
-            settingBox:show()
-            return
-        end
-        
-        -- Check if end turn button was clicked
-        if gameBoard and gameBoard:isPointInEndTurnButton(x, y) then
-            if GameLogic.gamePhase == "staging" and not GameLogic.player.submitted then
-                GameLogic:submitTurn()
-            end
-        end
-    end
+    currentScreen = InputManager:handleMousePressed(x, y, button, currentScreen, gameEnded, screens, gameBoard, GameLogic, AudioManager) or currentScreen
 end
 
 function love.mousemoved(x, y, dx, dy)
-    -- Update setting box
-    settingBox:mousemoved(x, y)
-    
-    -- Update game over box
-    gameOverBox:mousemoved(x, y)
-    
-    -- Update other screens
-    if currentScreen == "title" then
-        titleScreen:mousemoved(x, y)
-    elseif currentScreen == "credits" then
-        creditScreen:mousemoved(x, y)
-    elseif currentScreen == "game" then
-        -- Update UI buttons in game screen
-        if gameBoard and gameBoard.uiManager then
-            gameBoard.uiManager:updateButtonHover(x, y)
-        end
-    end
+    InputManager:handleMouseMoved(x, y, dx, dy, currentScreen, screens, gameBoard)
 end
 
 -- Function to show game over message
 function showGameOver(result)
-    gameOverBox:show(result)  -- "win" or "lose"
+    screens.gameOverBox:show(result)  -- "win" or "lose"
 end
 
--- Function to manage music based on current screen
+-- Legacy function wrappers for compatibility
+function playButton1Sound(callback)
+    AudioManager:playbutton1(callback)
+end
+
+function playButton2Sound(callback)
+    AudioManager:playbutton2(callback)
+end
+
 function switchMusic(screen)
-    if screen == "title" or screen == "credits" then
-        -- Stop game music and play title music
-        if bgMusic2 and bgMusic2:isPlaying() then
-            bgMusic2:stop()
-        end
-        if bgMusic and not bgMusic:isPlaying() then
-            bgMusic:play()
-        end
-    elseif screen == "game" then
-        -- Stop title music and play game music
-        if bgMusic and bgMusic:isPlaying() then
-            bgMusic:stop()
-        end
-        if bgMusic2 and not bgMusic2:isPlaying() then
-            bgMusic2:play()
-        end
-    end
+    AudioManager:switchMusic(screen)
 end

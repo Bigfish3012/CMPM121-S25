@@ -2,6 +2,7 @@
 local GameLogic = require "game"
 local CardAnimation = require "cardAnimation"
 local Button = require "button"
+local ResourceManager = require "resourceManager"
 
 local UIManager = {}
 
@@ -27,7 +28,7 @@ function UIManager:new(screenWidth, screenHeight)
         disabledTextColor = {0.6, 0.6, 0.6, 1},
         borderColor = {0.1, 0.4, 0.6, 1},
         borderWidth = 2,
-        font = love.graphics.newFont("asset/fonts/game.TTF", 16),
+        font = ResourceManager:getGameFont(16),
         cornerRadius = 5
     })
     
@@ -37,7 +38,7 @@ function UIManager:new(screenWidth, screenHeight)
         textColor = {1, 1, 1, 1},
         borderColor = {0.3, 0.3, 0.3, 1},
         borderWidth = 2,
-        font = love.graphics.newFont("asset/fonts/game.TTF", 14),
+        font = ResourceManager:getGameFont(14),
         cornerRadius = 5
     })
     

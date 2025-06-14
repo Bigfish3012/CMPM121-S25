@@ -1,5 +1,6 @@
 -- cards effect file:
 require "card"
+require "vector"
 
 CardEffects = {}
 
@@ -10,300 +11,342 @@ function CardEffects.init(gameLogic)
     CardEffects:registerAllEffects()
 end
 
--- register all card effects
-function CardEffects:registerAllEffects()
-    -- Zeus effect: When Revealed: Lower the power of each card in your opponent's hand by 1.
-    self.effects["Zeus"] = function(card, gameBoard)
-        local isPlayerCard = self.gameLogic:isPlayerCard(card, gameBoard)
-        
-        -- Target opponent's hand
-        local targetHand = isPlayerCard and gameBoard.opponentHand or gameBoard.playerHand
-        
-        for _, targetCard in ipairs(targetHand) do
-            if targetCard.power > 0 then  -- Don't reduce power below 0
-                targetCard.power = math.max(0, targetCard.power - 1)
-            end
-        end
-        
-        return true
-    end
+-- Helper function to find enemy cards in a location
+local function getEnemyCardsInLocation(card, gameBoard, locationIndex)
+    local isPlayerCard = CardEffects.gameLogic:isPlayerCard(card, gameBoard)
+    local enemySlots = isPlayerCard and gameBoard.locations[locationIndex].opponentSlots 
+                                     or gameBoard.locations[locationIndex].playerSlots
     
-    -- Ares effect: When Revealed: Gain +2 power for each enemy card here.
-    self.effects["Ares"] = function(card, gameBoard)
-        local isPlayerCard = self.gameLogic:isPlayerCard(card, gameBoard)
-        local locationIndex, slotIndex = card._tempLocationIndex, card._tempSlotIndex
-        
-        -- Fallback to finding location if temp data not available
-        if not locationIndex then
-            locationIndex, slotIndex = self:findCardLocation(card, gameBoard)
+    local enemyCards = {}
+    for i = 1, 4 do
+        if enemySlots[i] ~= nil then
+            table.insert(enemyCards, {card = enemySlots[i], slot = i})
         end
-        
-        if not locationIndex then
-            return false
-        end
-        
-        -- Count enemy cards in the same location
-        local enemySlots = isPlayerCard and gameBoard.locations[locationIndex].opponentSlots or gameBoard.locations[locationIndex].playerSlots
-        local enemyCardsCount = 0
-        
-        for _, enemyCard in ipairs(enemySlots) do
-            if enemyCard ~= nil then
-                enemyCardsCount = enemyCardsCount + 1
-            end
-        end
-        
-        -- Gain +2 power for each enemy card
-        local powerGain = enemyCardsCount * 2
-        card.power = card.power + powerGain
-        
-        return true
     end
+    return enemyCards, enemySlots
+end
+
+-- Helper function to find allied cards in a location
+local function getAlliedCardsInLocation(card, gameBoard, locationIndex)
+    local isPlayerCard = CardEffects.gameLogic:isPlayerCard(card, gameBoard)
+    local mySlots = isPlayerCard and gameBoard.locations[locationIndex].playerSlots 
+                                  or gameBoard.locations[locationIndex].opponentSlots
     
-    -- Cyclops effect: When Revealed: Discard your other cards here, gain +2 power for each discarded.
-    self.effects["Cyclops"] = function(card, gameBoard)
-        local isPlayerCard = self.gameLogic:isPlayerCard(card, gameBoard)
-        local locationIndex, slotIndex = card._tempLocationIndex, card._tempSlotIndex
-        
-        -- Fallback to finding location if temp data not available
-        if not locationIndex then
-            locationIndex, slotIndex = self:findCardLocation(card, gameBoard)
+    local alliedCards = {}
+    for i = 1, 4 do
+        local slotCard = mySlots[i]
+        if slotCard ~= nil and slotCard ~= card then
+            table.insert(alliedCards, {card = slotCard, slot = i})
         end
-        
-        if not locationIndex then
-            return false
-        end
-        
-        -- Find other cards in the same location (same side)
-        local mySlots = isPlayerCard and gameBoard.locations[locationIndex].playerSlots or gameBoard.locations[locationIndex].opponentSlots
-        local cardsToDiscard = {}
-        
-        for i, slotCard in ipairs(mySlots) do
-            if slotCard ~= nil and slotCard ~= card then
-                table.insert(cardsToDiscard, {card = slotCard, slot = i})
-            end
-        end
-        
-        -- Discard other cards and count them
-        local discardedCount = 0
-        for _, cardData in ipairs(cardsToDiscard) do
-            mySlots[cardData.slot] = nil  -- Remove from slot
-            self.gameLogic:discardCard(cardData.card, gameBoard)
-            discardedCount = discardedCount + 1
-        end
-        
-        -- Gain +2 power for each discarded card
-        local powerGain = discardedCount * 2
-        card.power = card.power + powerGain
-        
-        return true
     end
+    return alliedCards, mySlots
+end
+
+-- Helper function to get target hand based on card ownership
+local function getTargetHand(card, gameBoard, targetOpponent)
+    local isPlayerCard = CardEffects.gameLogic:isPlayerCard(card, gameBoard)
     
-    -- Demeter effect: When Revealed: Both players draw a card.
-    self.effects["Demeter"] = function(card, gameBoard)
-        -- Both players draw a card from their deck using the animated draw methods
-        if self.gameLogic.player then
-            self.gameLogic.player:drawCard(gameBoard)
-        end
-        if self.gameLogic.ai then
-            self.gameLogic.ai:drawCard(gameBoard)
-        end
-        
-        return true
-    end
-    
-    -- Apollo effect: When Revealed: Gain +1 mana next turn.
-    self.effects["Apollo"] = function(card, gameBoard)
-        local isPlayerCard = self.gameLogic:isPlayerCard(card, gameBoard)
-        
-        -- Add mana bonus for next turn using the new system
-        if isPlayerCard then
-            self.gameLogic.player:addManaBonus(1)
-        else
-            self.gameLogic.ai:addManaBonus(1)
-        end
-        
-        return true
-    end
-    
-    -- Poseidon effect: When Revealed: Move away an enemy card here with the lowest power.
-    self.effects["Poseidon"] = function(card, gameBoard)
-        local isPlayerCard = self.gameLogic:isPlayerCard(card, gameBoard)
-        local locationIndex, slotIndex = card._tempLocationIndex, card._tempSlotIndex
-        
-        -- Fallback to finding location if temp data not available
-        if not locationIndex then
-            locationIndex, slotIndex = self:findCardLocation(card, gameBoard)
-        end
-        
-        if not locationIndex then
-            return false
-        end
-        
-        -- Find enemy cards in the same location
-        local enemySlots = isPlayerCard and gameBoard.locations[locationIndex].opponentSlots or gameBoard.locations[locationIndex].playerSlots
-        local enemyHand = isPlayerCard and gameBoard.opponentHand or gameBoard.playerHand
-        
-        local lowestPowerCard = nil
-        local lowestPowerSlot = nil
-        local lowestPower = math.huge
-        
-        for i, enemyCard in ipairs(enemySlots) do
-            if enemyCard ~= nil and enemyCard.power < lowestPower then
-                lowestPower = enemyCard.power
-                lowestPowerCard = enemyCard
-                lowestPowerSlot = i
-            end
-        end
-        
-        if lowestPowerCard then
-            -- Remove from slot and return to hand
-            enemySlots[lowestPowerSlot] = nil
-            table.insert(enemyHand, lowestPowerCard)
-            
-            -- Reposition hand cards
-            gameBoard:positionHandCards()
-        end
-        
-        return true
-    end
-    
-    -- Hydra effect: Add two copies to your hand when this card is discarded.
-    self.effects["Hydra"] = function(card, gameBoard)
-        -- This effect is triggered when the card is discarded, not when revealed
-        -- We'll implement this as a special case in the discard function
-        return true
-    end
-    
-    -- Prometheus effect: When Revealed: Draw a card from your opponent's deck.
-    self.effects["Prometheus"] = function(card, gameBoard)
-        local isPlayerCard = self.gameLogic:isPlayerCard(card, gameBoard)
-        
-        -- Draw from opponent's deck to your hand with animation
-        local drawnCard = nil
-        if isPlayerCard then
-            -- Player draws from opponent's deck
-            if #gameBoard.opponentDeck > 0 then
-                drawnCard = table.remove(gameBoard.opponentDeck, 1)
-                
-                -- Get deck and hand positions for animation
-                local deckPositions = gameBoard:getDeckPositions()
-                local deckPos = deckPositions.opponent  -- Drawing from opponent's deck
-                
-                -- Position card at opponent's deck first
-                drawnCard.position = Vector(deckPos.x, deckPos.y)
-                drawnCard.faceUp = false  -- Start face down, flip during animation
-                drawnCard.canDrag = false  -- Don't allow dragging during animation
-                
-                -- Add to player hand
-                table.insert(gameBoard.playerHand, drawnCard)
-                
-                -- Calculate target position in hand
-                gameBoard:positionHandCards()
-                local targetPos = drawnCard.position  -- positionHandCards sets the final position
-                
-                -- Reset card to opponent's deck position and start animation
-                drawnCard.position = Vector(deckPos.x, deckPos.y)
-                drawnCard:startAnimation(targetPos.x, targetPos.y, 0.8)
-                
-                -- Set up animation callback to flip card and enable dragging when animation completes
-                drawnCard:setAnimationCallback(function()
-                    drawnCard.faceUp = true
-                    drawnCard.canDrag = true
-                end)
-            end
-        else
-            -- Opponent draws from player's deck
-            if #gameBoard.playerDeck > 0 then
-                drawnCard = table.remove(gameBoard.playerDeck, 1)
-                
-                -- Get deck and hand positions for animation
-                local deckPositions = gameBoard:getDeckPositions()
-                local deckPos = deckPositions.player  -- Drawing from player's deck
-                
-                -- Position card at player's deck first
-                drawnCard.position = Vector(deckPos.x, deckPos.y)
-                drawnCard.faceUp = false
-                drawnCard.canDrag = false
-                
-                -- Add to opponent hand
-                table.insert(gameBoard.opponentHand, drawnCard)
-                
-                -- Calculate target position in hand
-                gameBoard:positionHandCards()
-                local targetPos = drawnCard.position  -- positionHandCards sets the final position
-                
-                -- Reset card to player's deck position and start animation
-                drawnCard.position = Vector(deckPos.x, deckPos.y)
-                drawnCard:startAnimation(targetPos.x, targetPos.y, 0.8)
-            end
-        end
-        
-        return true
-    end
-    
-    -- Dionysus effect: When Revealed: Gain +2 power for each of your other cards here.
-    self.effects["Dionysus"] = function(card, gameBoard)
-        local isPlayerCard = self.gameLogic:isPlayerCard(card, gameBoard)
-        local locationIndex, slotIndex = card._tempLocationIndex, card._tempSlotIndex
-        
-        -- Fallback to finding location if temp data not available
-        if not locationIndex then
-            locationIndex, slotIndex = self:findCardLocation(card, gameBoard)
-        end
-        
-        if not locationIndex then
-            return false
-        end
-        
-        -- Count other friendly cards in the same location
-        local mySlots = isPlayerCard and gameBoard.locations[locationIndex].playerSlots or gameBoard.locations[locationIndex].opponentSlots
-        local friendlyCardsCount = 0
-        
-        for _, slotCard in ipairs(mySlots) do
-            if slotCard ~= nil and slotCard ~= card then
-                friendlyCardsCount = friendlyCardsCount + 1
-            end
-        end
-        
-        -- Gain +2 power for each friendly card
-        local powerGain = friendlyCardsCount * 2
-        card.power = card.power + powerGain
-        
-        return true
-    end
-    
-    -- Athena effect: Gain +1 power when you play another card here.
-    self.effects["Athena"] = function(card, gameBoard)
-        -- This is a passive effect that triggers when other cards are played
-        -- We'll mark this card as having a passive effect
-        card.hasPassiveEffect = true
-        card.passiveEffectType = "athena"
-        
-        return true
+    if targetOpponent then
+        return isPlayerCard and gameBoard.opponentHand or gameBoard.playerHand
+    else
+        return isPlayerCard and gameBoard.playerHand or gameBoard.opponentHand
     end
 end
 
--- Helper function to find a card's location and slot
-function CardEffects:findCardLocation(card, gameBoard)
+-- Helper function to find card location
+local function findCardLocation(card, gameBoard)
+    -- Use temp data first if available
+    if card._tempLocationIndex then
+        return card._tempLocationIndex, card._tempSlotIndex
+    end
+    
+    -- Search for card in all locations
     for locationIndex = 1, 3 do
-        local location = gameBoard.locations[locationIndex]
-        
-        -- Check player slots
-        for slotIndex, slotCard in ipairs(location.playerSlots) do
-            if slotCard == card then
-                return locationIndex, slotIndex
-            end
-        end
-        
-        -- Check opponent slots
-        for slotIndex, slotCard in ipairs(location.opponentSlots) do
-            if slotCard == card then
+        for slotIndex = 1, 4 do
+            if gameBoard.locations[locationIndex].playerSlots[slotIndex] == card or
+               gameBoard.locations[locationIndex].opponentSlots[slotIndex] == card then
                 return locationIndex, slotIndex
             end
         end
     end
-    
     return nil, nil
+end
+
+-- Helper function to animate card draw from deck to hand
+local function animateCardDraw(gameBoard, drawnCard, fromDeck, toHand, targetPos, flipOnComplete)
+    if not drawnCard then return end
+    
+    drawnCard.position = Vector(fromDeck.x, fromDeck.y)
+    drawnCard.faceUp = false
+    drawnCard.canDrag = false
+    
+    drawnCard:startAnimation(targetPos.x, targetPos.y, 0.8)
+    
+    if flipOnComplete then
+        drawnCard:setAnimationCallback(function()
+            -- Play flip sound effect
+            if playFlipSound then
+                playFlipSound()
+            end
+            drawnCard.faceUp = true
+            drawnCard.canDrag = true
+        end)
+    end
+end
+
+-- Zeus effect: Lower opponent's hand power by 1
+local function zeusEffect(card, gameBoard)
+    local targetHand = getTargetHand(card, gameBoard, true)
+    
+    for _, targetCard in ipairs(targetHand) do
+        if targetCard.power > 0 then
+            targetCard.power = math.max(0, targetCard.power - 1)
+        end
+    end
+    return true
+end
+
+-- Ares effect: Gain +2 power for each enemy card in location
+local function aresEffect(card, gameBoard)
+    local locationIndex = findCardLocation(card, gameBoard)
+    if not locationIndex then return false end
+    
+    local enemyCards = getEnemyCardsInLocation(card, gameBoard, locationIndex)
+    local powerGain = #enemyCards * 2
+    card.power = card.power + powerGain
+    
+    return true
+end
+
+-- Cyclops effect: Discard allied cards, gain +2 power per discarded
+local function cyclopsEffect(card, gameBoard)
+    local locationIndex = findCardLocation(card, gameBoard)
+    if not locationIndex then return false end
+    
+    local alliedCards, mySlots = getAlliedCardsInLocation(card, gameBoard, locationIndex)
+    
+    -- Determine the correct discard pile before removing cards from slots
+    local isPlayerCard = CardEffects.gameLogic:isPlayerCard(card, gameBoard)
+    local targetDiscardPile = isPlayerCard and gameBoard.playerDiscardPile or gameBoard.opponentDiscardPile
+    
+    -- Discard allied cards and count them
+    local discardedCount = 0
+    for _, cardData in ipairs(alliedCards) do
+        -- Remove from slot
+        mySlots[cardData.slot] = nil
+        
+        -- Add directly to the correct discard pile
+        table.insert(targetDiscardPile, cardData.card)
+        
+        -- Handle any special discard effects (like Hydra)
+        CardEffects:handleHydraDiscard(cardData.card, gameBoard)
+        
+        -- Remove from main cards array
+        for i = #gameBoard.cards, 1, -1 do
+            if gameBoard.cards[i] == cardData.card then
+                table.remove(gameBoard.cards, i)
+                break
+            end
+        end
+        
+        discardedCount = discardedCount + 1
+    end
+    
+    -- Gain power
+    card.power = card.power + (discardedCount * 2)
+    return true
+end
+
+-- Demeter effect: Both players draw a card
+local function demeterEffect(card, gameBoard)
+    local animationsStarted = false
+    local playerCard = nil
+    local aiCard = nil
+    
+    if CardEffects.gameLogic.player then
+        playerCard = CardEffects.gameLogic.player:drawCard(gameBoard)
+        if playerCard then
+            animationsStarted = true
+        end
+    end
+    
+    if CardEffects.gameLogic.ai then
+        aiCard = CardEffects.gameLogic.ai:drawCard(gameBoard)
+        if aiCard then
+            animationsStarted = true
+        end
+    end
+    
+    -- If animations were started, we need to wait for them to complete
+    if animationsStarted then
+        -- Set a flag to indicate this effect has animations
+        card._hasActiveAnimations = true
+        
+        -- Track completion of both animations
+        local completedAnimations = 0
+        local totalAnimations = (playerCard and 1 or 0) + (aiCard and 1 or 0)
+        
+        local function onAnimationComplete()
+            completedAnimations = completedAnimations + 1
+            if completedAnimations >= totalAnimations then
+                -- All animations complete, clear the flag
+                card._hasActiveAnimations = false
+            end
+        end
+        
+        -- Set completion callbacks
+        if playerCard then
+            local originalCallback = playerCard.animationCompleteCallback
+            playerCard.animationCompleteCallback = function()
+                if originalCallback then
+                    originalCallback()
+                end
+                onAnimationComplete()
+            end
+        end
+        
+        if aiCard then
+            local originalCallback = aiCard.animationCompleteCallback
+            aiCard.animationCompleteCallback = function()
+                if originalCallback then
+                    originalCallback()
+                end
+                onAnimationComplete()
+            end
+        end
+    end
+    
+    return true
+end
+
+-- Apollo effect: Gain +1 mana next turn
+local function apolloEffect(card, gameBoard)
+    local isPlayerCard = CardEffects.gameLogic:isPlayerCard(card, gameBoard)
+    
+    if isPlayerCard then
+        CardEffects.gameLogic.player:addManaBonus(1)
+    else
+        CardEffects.gameLogic.ai:addManaBonus(1)
+    end
+    return true
+end
+
+-- Poseidon effect: Move away lowest power enemy card
+local function poseidonEffect(card, gameBoard)
+    local locationIndex = findCardLocation(card, gameBoard)
+    if not locationIndex then return false end
+    
+    local enemyCards, enemySlots = getEnemyCardsInLocation(card, gameBoard, locationIndex)
+    
+    -- Find lowest power enemy card
+    local lowestPowerCard, lowestPowerSlot = nil, nil
+    local lowestPower = math.huge
+    
+    for _, enemyData in ipairs(enemyCards) do
+        local power = enemyData.card.power or 0
+        if power < lowestPower then
+            lowestPower = power
+            lowestPowerCard = enemyData.card
+            lowestPowerSlot = enemyData.slot
+        end
+    end
+    
+    if lowestPowerCard then
+        -- Play flip sound effect
+        if playFlipSound then
+            playFlipSound()
+        end
+        lowestPowerCard.faceUp = true
+        lowestPowerCard.canDrag = false
+        CardEffects.gameLogic:discardCard(lowestPowerCard, gameBoard)
+    end
+    
+    return true
+end
+
+-- Prometheus effect: Draw from opponent's deck
+local function prometheusEffect(card, gameBoard)
+    local isPlayerCard = CardEffects.gameLogic:isPlayerCard(card, gameBoard)
+    local deckPositions = gameBoard:getDeckPositions()
+    
+    local sourceDeck, targetHand, deckPos
+    if isPlayerCard then
+        sourceDeck = gameBoard.opponentDeck
+        targetHand = gameBoard.playerHand
+        deckPos = deckPositions.opponent
+    else
+        sourceDeck = gameBoard.playerDeck
+        targetHand = gameBoard.opponentHand
+        deckPos = deckPositions.player
+    end
+    
+    if #sourceDeck > 0 then
+        local drawnCard = table.remove(sourceDeck, 1)
+        table.insert(targetHand, drawnCard)
+        
+        gameBoard:positionHandCards()
+        local targetPos = drawnCard.position
+        
+        -- Set flag to indicate this effect has animations
+        card._hasActiveAnimations = true
+        
+        -- Set up the card animation first
+        drawnCard.position = Vector(deckPos.x, deckPos.y)
+        drawnCard.faceUp = false
+        drawnCard.canDrag = false
+        
+        drawnCard:startAnimation(targetPos.x, targetPos.y, 0.8)
+        
+        -- Set up completion callback to clear the animation flag and handle flipping
+        drawnCard:setAnimationCallback(function()
+            -- Handle card flipping for player cards
+            if isPlayerCard then
+                -- Play flip sound effect
+                if playFlipSound then
+                    playFlipSound()
+                end
+                drawnCard.faceUp = true
+                drawnCard.canDrag = true
+            end
+            
+            -- Clear the animation flag when animation completes
+            card._hasActiveAnimations = false
+        end)
+    end
+    
+    return true
+end
+
+-- Dionysus effect: Gain +2 power for each allied card
+local function dionysusEffect(card, gameBoard)
+    local locationIndex = findCardLocation(card, gameBoard)
+    if not locationIndex then return false end
+    
+    local alliedCards = getAlliedCardsInLocation(card, gameBoard, locationIndex)
+    local powerGain = #alliedCards * 2
+    card.power = card.power + powerGain
+    
+    return true
+end
+
+-- register all card effects
+function CardEffects:registerAllEffects()
+    self.effects = {
+        ["Zeus"] = zeusEffect,
+        ["Ares"] = aresEffect,
+        ["Cyclops"] = cyclopsEffect,
+        ["Demeter"] = demeterEffect,
+        ["Apollo"] = apolloEffect,
+        ["Poseidon"] = poseidonEffect,
+        ["Hydra"] = function() return true end, -- Special handling in discard
+        ["Prometheus"] = prometheusEffect,
+        ["Dionysus"] = dionysusEffect,
+        ["Athena"] = function(card, gameBoard)
+            card.hasPassiveEffect = true
+            card.passiveEffectType = "athena"
+            return true
+        end
+    }
 end
 
 -- Alternative method to find card location by passing location info
@@ -341,7 +384,8 @@ function CardEffects:checkPassiveEffects(newCard, gameBoard, locationIndex)
     -- Check slots for Athena cards
     local slotsToCheck = isPlayerCard and location.playerSlots or location.opponentSlots
     
-    for _, slotCard in ipairs(slotsToCheck) do
+    for i = 1, 4 do
+        local slotCard = slotsToCheck[i]
         if slotCard and slotCard ~= newCard and slotCard.hasPassiveEffect and slotCard.passiveEffectType == "athena" then
             slotCard.power = slotCard.power + 1
         end
